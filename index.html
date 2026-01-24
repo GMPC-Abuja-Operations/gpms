@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proposal Management System</title>
+    <title>Goldenmuv Proposal Management System</title>
     <style>
         :root {
             --primary: #D4AF37;
@@ -170,6 +170,47 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* New Styles for Improvements */
+        .error-field {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25) !important;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 0.9rem;
+            margin-top: 4px;
+            display: none;
+        }
+        .loading-dropdown {
+            background-image: linear-gradient(45deg, transparent 33%, rgba(212, 175, 55, 0.1) 33%, rgba(212, 175, 55, 0.1) 66%, transparent 66%);
+            background-size: 35px 35px;
+            animation: loading-shimmer 1.5s linear infinite;
+        }
+        @keyframes loading-shimmer {
+            0% { background-position: -100px 0; }
+            100% { background-position: 100px 0; }
+        }
+        .task-option {
+            padding: 8px 12px;
+        }
+        .task-option:hover {
+            background: rgba(212, 175, 55, 0.1);
+        }
+        .draft-notice {
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px dashed var(--primary);
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+        .keyboard-hint {
+            font-size: 0.85rem;
+            color: var(--gray);
+            margin-left: 10px;
+        }
+        
         @media (max-width: 600px) {
             .tab-content { padding: 20px; }
             .tabs { flex-direction: column; }
@@ -203,7 +244,7 @@
 <body>
     <div class="container">
         <header>
-            <!-- Logo - REPLACE THE SRC WITH YOUR ACTUAL LOGO URL -->
+            <!-- Logo -->
             <img src="Picture1.png" 
                  alt="Goldenmuv Logo" 
                  class="logo">
@@ -211,51 +252,79 @@
             <p style="margin: 8px 0 0; font-size: 1.25rem; font-weight: 500; opacity: 0.95; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">Goldenmuv Proposal Management System</p>
         </header>
         <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('new')">📋 New Opportunity (Partners)</button>
-            <button class="tab-btn" onclick="showTab('update')">🔄 Update Task (Associates)</button>
+            <button class="tab-btn active" onclick="showTab('new')" id="tab-new">
+                📋 New Opportunity (Partners) <span class="keyboard-hint">Ctrl+1</span>
+            </button>
+            <button class="tab-btn" onclick="showTab('update')" id="tab-update">
+                🔄 Update Task (Associates) <span class="keyboard-hint">Ctrl+2</span>
+            </button>
         </div>
         <div class="tab-content">
             <!-- New Opportunity Form -->
             <div id="new-tab" class="tab-panel active">
+                <div id="draft-notice" class="draft-notice" style="display: none;">
+                    📝 Draft restored. <button onclick="clearDraft()" style="background: none; border: none; color: var(--primary); text-decoration: underline; cursor: pointer; margin-left: 10px;">Clear draft</button>
+                </div>
                 <form id="new-form">
                     <input type="hidden" name="formType" value="newOpportunity">
-                    <label for="clientName">Client Name:*</label>
-                    <input type="text" id="clientName" name="clientName" required placeholder="e.g., ABC Corp">
-                    <label for="source">Opportunity Source:*</label>
-                    <select id="source" name="source" required>
-                        <option value="">Select...</option>
-                        <option value="existing">Existing Client</option>
-                        <option value="referral">Referral</option>
-                        <option value="cold">Cold Outreach</option>
-                        <option value="partner">Partner Network</option>
-                        <option value="other">Other</option>
-                    </select>
-                    <label for="description">Description:*</label>
-                    <textarea id="description" name="description" required rows="4" placeholder="Brief overview of the opportunity..."></textarea>
-                    <label for="nairaEstimateDisplay">₦ Estimate:*</label>
-                    <input type="text" id="nairaEstimateDisplay" required placeholder="e.g., 5,000,000">
-                    <input type="hidden" id="nairaEstimate" name="nairaEstimate">
-                    <label for="assignedStaff">Assigned Staff:*</label>
-                    <select id="assignedStaff" name="assignedStaff" required>
-                        <option value="">Select...</option>
-                        <option value="staff1">Mr. Immanuelson Sam</option>
-                        <option value="staff2">Ms. Joan Alaribe</option>
-                        <option value="staff3">Mr. Emmanuel Agama</option>
-                        <option value="staff4">Mr. Matthew Nnaji</option>
-                        <option value="staff5">Mr. Peter Esiole</option>
-                    </select>
-                    <label for="followupPerson">Follow-up Person:*</label>
-                    <select id="followupPerson" name="followupPerson" required>
-                        <option value="">Select...</option>
-                        <option value="staff1">Mr. Immanuelson Sam</option>
-                        <option value="staff2">Ms. Joan Alaribe</option>
-                        <option value="staff3">Mr. Emmanuel Agama</option>
-                        <option value="staff4">Mr. Matthew Nnaji</option>
-                        <option value="staff5">Mr. Peter Esiole</option>
-                    </select>
-                    <label for="dueDate">Due Date:*</label>
-                    <input type="date" id="dueDate" name="dueDate" required>
-                    <button type="submit">Submit Opportunity</button>
+                    <div>
+                        <label for="clientName">Client Name:*</label>
+                        <input type="text" id="clientName" name="clientName" required placeholder="e.g., ABC Corp">
+                        <span class="error-message" id="clientName-error">Client name is required</span>
+                    </div>
+                    <div>
+                        <label for="source">Opportunity Source:*</label>
+                        <select id="source" name="source" required>
+                            <option value="">Select...</option>
+                            <option value="existing">Existing Client</option>
+                            <option value="referral">Referral</option>
+                            <option value="cold">Cold Outreach</option>
+                            <option value="partner">Partner Network</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <span class="error-message" id="source-error">Please select a source</span>
+                    </div>
+                    <div>
+                        <label for="description">Description:*</label>
+                        <textarea id="description" name="description" required rows="4" placeholder="Brief overview of the opportunity..."></textarea>
+                        <span class="error-message" id="description-error">Description is required</span>
+                    </div>
+                    <div>
+                        <label for="nairaEstimateDisplay">₦ Estimate:*</label>
+                        <input type="text" id="nairaEstimateDisplay" required placeholder="e.g., 5,000,000">
+                        <input type="hidden" id="nairaEstimate" name="nairaEstimate">
+                        <span class="error-message" id="nairaEstimate-error">Please enter a valid amount</span>
+                    </div>
+                    <div>
+                        <label for="assignedStaff">Assigned Staff:*</label>
+                        <select id="assignedStaff" name="assignedStaff" required>
+                            <option value="">Select...</option>
+                            <option value="staff1">Mr. Immanuelson Sam</option>
+                            <option value="staff2">Ms. Joan Alaribe</option>
+                            <option value="staff3">Mr. Emmanuel Agama</option>
+                            <option value="staff4">Mr. Matthew Nnaji</option>
+                            <option value="staff5">Mr. Peter Esiole</option>
+                        </select>
+                        <span class="error-message" id="assignedStaff-error">Please select assigned staff</span>
+                    </div>
+                    <div>
+                        <label for="followupPerson">Follow-up Person:*</label>
+                        <select id="followupPerson" name="followupPerson" required>
+                            <option value="">Select...</option>
+                            <option value="staff1">Mr. Immanuelson Sam</option>
+                            <option value="staff2">Ms. Joan Alaribe</option>
+                            <option value="staff3">Mr. Emmanuel Agama</option>
+                            <option value="staff4">Mr. Matthew Nnaji</option>
+                            <option value="staff5">Mr. Peter Esiole</option>
+                        </select>
+                        <span class="error-message" id="followupPerson-error">Please select follow-up person</span>
+                    </div>
+                    <div>
+                        <label for="dueDate">Due Date:*</label>
+                        <input type="date" id="dueDate" name="dueDate" required>
+                        <span class="error-message" id="dueDate-error">Please select a valid future date</span>
+                    </div>
+                    <button type="submit">Submit Opportunity <span class="keyboard-hint">Ctrl+Enter</span></button>
                 </form>
             </div>
 
@@ -273,10 +342,18 @@
                       <span>🔓</span> Close Task (Partner)
                     </button>
                     
-                    <label for="taskId">Select Task:*</label>
-                    <select id="taskId" name="taskId" required>
-                        <option value="" disabled selected>Loading tasks…</option>
-                    </select>
+                    <div style="margin-bottom: 10px;">
+                        <input type="text" id="task-search" placeholder="🔍 Search tasks..." 
+                               style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; border-radius: 6px;">
+                    </div>
+                    
+                    <div>
+                        <label for="taskId">Select Task:*</label>
+                        <select id="taskId" name="taskId" required>
+                            <option value="" disabled selected>Loading tasks…</option>
+                        </select>
+                        <span class="error-message" id="taskId-error">Please select a task</span>
+                    </div>
 
                     <!-- ADD Partner Close Section (hidden by default) -->
                     <div id="partner-section" style="margin: 30px 0; padding: 20px; background: #F5F0E1; border-radius: 8px; border: 1px dashed #D4AF37; display: none;">
@@ -319,12 +396,15 @@
                       </div>
                     </div>
                     
-                    <label for="status">Status:*</label>
-                    <select id="status" name="status" required>
-                      <option value="">Select status...</option>
-                      <option value="ready_for_review">✅ Ready for Review</option>
-                      <option value="sent_to_client">📤 Sent to Client</option>
-                    </select>
+                    <div>
+                        <label for="status">Status:*</label>
+                        <select id="status" name="status" required>
+                          <option value="">Select status...</option>
+                          <option value="ready_for_review">✅ Ready for Review</option>
+                          <option value="sent_to_client">📤 Sent to Client</option>
+                        </select>
+                        <span class="error-message" id="status-error">Please select a status</span>
+                    </div>
 
                     <hr>
 
@@ -333,7 +413,7 @@
                         Upload documents related to this task (proposals, contracts, approvals).
                     </p>
 
-                    <button type="button" onclick="openUploadForm()">Upload Files</button>
+                    <button type="button" onclick="openUploadModal()">Upload Files</button>
 
                     <textarea name="notes" rows="3" placeholder="Any additional notes or comments..." style="border: 1px solid #4A2C2A;"></textarea>
                     
@@ -341,7 +421,7 @@
                         <label for="nextFollowupDate">Next Follow-up Date:*</label>
                         <input type="date" id="nextFollowupDate" name="nextFollowupDate">
                     </div>
-                    <button type="submit">Update Task</button>
+                    <button type="submit">Update Task <span class="keyboard-hint">Ctrl+Enter</span></button>
                 </form>
             </div>
 
@@ -349,6 +429,22 @@
             <div id="success-banner" class="banner success" style="display:none;"></div>
             <div id="error-banner" class="banner error" style="display:none;"></div>
             <div id="loading" class="loading">Submitting...</div>
+        </div>
+    </div>
+
+    <!-- Google Form Modal -->
+    <div id="upload-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(74, 44, 42, 0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto; border: 2px solid #D4AF37;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="color: #4A2C2A; margin: 0;">📎 Upload Documents</h3>
+                <button onclick="closeUploadModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #4A2C2A;">&times;</button>
+            </div>
+            <iframe id="google-form-iframe" style="width: 100%; height: 500px; border: 1px solid #D4AF37; border-radius: 6px;"></iframe>
+            <div style="margin-top: 15px; text-align: center;">
+                <button onclick="closeUploadModal()" style="background: #F5F0E1; border: 1px solid #D4AF37; color: #4A2C2A; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                    Close Upload Form
+                </button>
+            </div>
         </div>
     </div>
 
@@ -365,7 +461,51 @@
 
             // Load tasks for update form
             loadTasks();
+            
+            // Load draft if exists
+            loadFormDraft();
+            
+            // Initialize keyboard shortcuts
+            initKeyboardShortcuts();
+            
+            // Initialize search functionality
+            initTaskSearch();
         });
+
+        // === KEYBOARD SHORTCUTS ===
+        function initKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Ctrl + 1 for New Opportunity tab
+                if (e.ctrlKey && e.key === '1') {
+                    e.preventDefault();
+                    showTab('new');
+                }
+                
+                // Ctrl + 2 for Update Task tab
+                if (e.ctrlKey && e.key === '2') {
+                    e.preventDefault();
+                    showTab('update');
+                }
+                
+                // Ctrl + Enter to submit active form
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    const activeTab = document.querySelector('.tab-panel.active');
+                    const form = activeTab.querySelector('form');
+                    if (form) {
+                        const submitBtn = form.querySelector('button[type="submit"]');
+                        if (submitBtn && !submitBtn.disabled) {
+                            submitBtn.click();
+                        }
+                    }
+                }
+                
+                // Escape to close modal
+                if (e.key === 'Escape') {
+                    closeUploadModal();
+                }
+            });
+        }
 
         // === TAB MANAGEMENT ===
         function showTab(tabName) {
@@ -373,31 +513,132 @@
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById(tabName + '-tab').classList.add('active');
             document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+            
+            // Focus first input in active tab
+            setTimeout(() => {
+                const firstInput = document.querySelector('.tab-panel.active input, .tab-panel.active select');
+                if (firstInput) firstInput.focus();
+            }, 100);
         }
 
-        // === GOOGLE FORM UPLOAD ===
-        function openUploadForm() {
-          const taskSelect = document.getElementById('taskId');
-          const taskId = taskSelect.value;
-        
-          if (!taskId) {
-            alert('Please select a task before uploading documents.');
-            taskSelect.focus();
-            return;
-          }
-        
-          // Use the CORRECT form ID from your prefill link
-          const FORM_URL =
-            'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?usp=pp_url' +
-            '&entry.1694540215=' + encodeURIComponent(taskId);
-        
-          console.log('Opening form for task:', taskId);
-          window.open(FORM_URL, '_blank');
+        // === GOOGLE FORM MODAL ===
+        function openUploadModal() {
+            const taskSelect = document.getElementById('taskId');
+            const taskId = taskSelect.value;
+            
+            if (!taskId) {
+                showError('taskId', 'Please select a task before uploading documents.');
+                taskSelect.focus();
+                return;
+            }
+            
+            // Prefill the form URL
+            const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?embedded=true&usp=pp_url&entry.1694540215=' + encodeURIComponent(taskId);
+            
+            // Set iframe source
+            document.getElementById('google-form-iframe').src = FORM_URL;
+            
+            // Show modal
+            document.getElementById('upload-modal').style.display = 'flex';
+        }
+
+        function closeUploadModal() {
+            document.getElementById('upload-modal').style.display = 'none';
+            document.getElementById('google-form-iframe').src = '';
+        }
+
+        // === FORM VALIDATION ===
+        function validateForm(formId) {
+            let isValid = true;
+            const form = document.getElementById(formId);
+            
+            // Clear previous errors
+            clearErrors();
+            
+            // Validate all required fields
+            form.querySelectorAll('[required]').forEach(field => {
+                if (!field.value.trim()) {
+                    showError(field.id, `${field.labels?.[0]?.textContent || 'This field'} is required`);
+                    isValid = false;
+                }
+                
+                // Special validation for dates
+                if (field.type === 'date') {
+                    if (!validateDate(field.value, field.id)) {
+                        isValid = false;
+                    }
+                }
+                
+                // Special validation for Naira estimate
+                if (field.id === 'nairaEstimateDisplay') {
+                    const hiddenField = document.getElementById('nairaEstimate');
+                    if (!hiddenField.value || isNaN(hiddenField.value) || parseInt(hiddenField.value) <= 0) {
+                        showError('nairaEstimateDisplay', 'Please enter a valid ₦ estimate');
+                        isValid = false;
+                    }
+                }
+            });
+            
+            return isValid;
+        }
+
+        function validateDate(dateString, fieldId) {
+            if (!dateString) return true;
+            
+            const date = new Date(dateString);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (date < today) {
+                showError(fieldId, 'Date cannot be in the past');
+                return false;
+            }
+            
+            // Optional: Limit to 1 year in future
+            const maxDate = new Date();
+            maxDate.setFullYear(maxDate.getFullYear() + 1);
+            if (date > maxDate) {
+                showError(fieldId, 'Date cannot be more than 1 year in the future');
+                return false;
+            }
+            
+            return true;
+        }
+
+        function showError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            const errorElement = document.getElementById(`${fieldId}-error`);
+            
+            if (field) {
+                field.classList.add('error-field');
+                field.focus();
+            }
+            
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+            }
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.error-field').forEach(field => {
+                field.classList.remove('error-field');
+            });
+            
+            document.querySelectorAll('.error-message').forEach(error => {
+                error.style.display = 'none';
+            });
         }
 
         // === FORM SUBMISSION ===
         async function handleSubmit(formId, e) {
             e.preventDefault();
+            
+            // Validate form
+            if (!validateForm(formId)) {
+                return;
+            }
+            
             const form = document.getElementById(formId);
             const submitBtn = form.querySelector('button[type="submit"]');
             const loading = document.getElementById('loading');
@@ -434,14 +675,22 @@
                     successBanner.textContent = result.message || '✓ Success!';
                     successBanner.style.display = 'block';
         
+                    // Clear form
                     form.reset();
+                    
+                    // Clear draft
+                    if (formId === 'new-form') {
+                        localStorage.removeItem('newOpportunityDraft');
+                        document.getElementById('draft-notice').style.display = 'none';
+                    }
         
+                    // Clear conditional fields
                     document.querySelectorAll('.conditional').forEach(field => {
-                        if (field && field.classList) { // ⭐ ADD NULL CHECK
+                        if (field && field.classList) {
                             field.classList.remove('visible');
-                            if (field.querySelectorAll) { // ⭐ ADD SAFETY CHECK
+                            if (field.querySelectorAll) {
                                 field.querySelectorAll('input, select').forEach(input => {
-                                    if (input) { // ⭐ ADD NULL CHECK
+                                    if (input) {
                                         input.required = false;
                                         if (input.type === 'number') input.value = '';
                                         if (input.type === 'date') input.value = '';
@@ -452,9 +701,15 @@
                         }
                     });
         
+                    // Reload tasks for update form
                     if (formId === 'update-form') {
                         await loadTasks();
                     }
+        
+                    // Auto-refresh tasks after a delay
+                    setTimeout(() => {
+                        loadTasks();
+                    }, 1500);
         
                     setTimeout(() => {
                         successBanner.style.display = 'none';
@@ -475,69 +730,162 @@
             }
         }
 
-        // === TASK LOADING ===
-        // === TASK LOADING ===
-async function loadTasks() {
-    const select = document.getElementById('taskId');
-    
-    try {
-        // Show loading state
-        select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
+        // === TASK LOADING WITH SEARCH ===
+        let allTasks = [];
         
-        // Call your Apps Script
-        const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
-            mode: 'cors',
-            cache: 'no-cache'
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Server error: ${response.status}`);
+        async function loadTasks() {
+            const select = document.getElementById('taskId');
+            const originalHTML = select.innerHTML;
+            
+            try {
+                // Show loading state
+                select.classList.add('loading-dropdown');
+                select.disabled = true;
+                select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
+                
+                // Call your Apps Script
+                const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                
+                const tasks = await response.json();
+                
+                // Debug log
+                console.log('Tasks loaded:', tasks);
+                
+                // Store all tasks for search
+                allTasks = tasks || [];
+                
+                // Populate dropdown
+                populateTaskDropdown(allTasks);
+                
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+                select.innerHTML = '<option value="">Error loading tasks</option>';
+                
+                // Show error in banner
+                const errorBanner = document.getElementById('error-banner');
+                errorBanner.textContent = 'Failed to load tasks. Check console for details.';
+                errorBanner.style.display = 'block';
+            } finally {
+                select.classList.remove('loading-dropdown');
+                select.disabled = false;
+            }
         }
-        
-        const tasks = await response.json();
-        
-        // Debug log (open browser console to see this)
-        console.log('Tasks loaded:', tasks);
-        
-        // Clear and populate dropdown
-        select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
-        
-        if (!tasks || tasks.length === 0) {
-            select.innerHTML += '<option value="">No active tasks found</option>';
-            return;
+
+        function populateTaskDropdown(tasks) {
+            const select = document.getElementById('taskId');
+            const searchTerm = document.getElementById('task-search').value.toLowerCase();
+            
+            select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
+            
+            if (!tasks || tasks.length === 0) {
+                select.innerHTML += '<option value="">No active tasks found</option>';
+                return;
+            }
+            
+            // Filter tasks based on search
+            const filteredTasks = tasks.filter(task => {
+                if (!searchTerm) return true;
+                const taskText = `${task.clientName} ${task.status} ${task.dueDate}`.toLowerCase();
+                return taskText.includes(searchTerm);
+            });
+            
+            // Add each task to dropdown
+            filteredTasks.forEach(task => {
+                const option = document.createElement('option');
+                option.value = task.id;
+                option.textContent = `${task.clientName} - ${task.status} (Due: ${task.dueDate || 'No date'})`;
+                option.className = 'task-option';
+                select.appendChild(option);
+            });
+            
+            // Show count
+            document.getElementById('task-search').placeholder = `🔍 Search ${filteredTasks.length} tasks...`;
         }
-        
-        // Add each task to dropdown
-        tasks.forEach(task => {
-            const option = document.createElement('option');
-            option.value = task.id;
-            option.textContent = `${task.clientName} - ${task.status} (Due: ${task.dueDate || 'No date'})`;
-            select.appendChild(option);
+
+        function initTaskSearch() {
+            const searchInput = document.getElementById('task-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    populateTaskDropdown(allTasks);
+                });
+            }
+        }
+
+        // === FORM DRAFT PERSISTENCE ===
+        function loadFormDraft() {
+            const draft = localStorage.getItem('newOpportunityDraft');
+            if (draft) {
+                try {
+                    const data = JSON.parse(draft);
+                    Object.keys(data).forEach(key => {
+                        const element = document.querySelector(`[name="${key}"]`);
+                        if (element) {
+                            element.value = data[key];
+                            
+                            // Special handling for Naira estimate
+                            if (key === 'nairaEstimate' && element.id === 'nairaEstimate') {
+                                const displayField = document.getElementById('nairaEstimateDisplay');
+                                if (displayField && data[key]) {
+                                    const numValue = parseInt(data[key]);
+                                    if (!isNaN(numValue)) {
+                                        displayField.value = new Intl.NumberFormat('en-NG').format(numValue);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Show draft notice
+                    document.getElementById('draft-notice').style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('Error loading draft:', error);
+                    localStorage.removeItem('newOpportunityDraft');
+                }
+            }
+        }
+
+        function saveFormDraft() {
+            const formData = new FormData(document.getElementById('new-form'));
+            const data = Object.fromEntries(formData.entries());
+            
+            // Don't save if form is mostly empty
+            const hasContent = Object.values(data).some(value => value && value.trim());
+            if (hasContent) {
+                localStorage.setItem('newOpportunityDraft', JSON.stringify(data));
+            }
+        }
+
+        function clearDraft() {
+            localStorage.removeItem('newOpportunityDraft');
+            document.getElementById('new-form').reset();
+            document.getElementById('draft-notice').style.display = 'none';
+        }
+
+        // Auto-save draft on input
+        document.querySelectorAll('#new-form input, #new-form textarea, #new-form select').forEach(element => {
+            element.addEventListener('input', saveFormDraft);
+            element.addEventListener('change', saveFormDraft);
         });
-        
-    } catch (error) {
-        console.error('Error loading tasks:', error);
-        select.innerHTML = '<option value="">Error loading tasks</option>';
-        
-        // Show error in banner
-        const errorBanner = document.getElementById('error-banner');
-        errorBanner.textContent = 'Failed to load tasks. Check console for details.';
-        errorBanner.style.display = 'block';
-    }
-}
 
         // === EVENT LISTENERS ===
         document.getElementById('new-form').addEventListener('submit', e => handleSubmit('new-form', e));
         document.getElementById('update-form').addEventListener('submit', e => handleSubmit('update-form', e));
 
-        // Toggle partner section visibility
+        // === PARTER SECTION FUNCTIONS ===
         function togglePartnerSection() {
           const section = document.getElementById('partner-section');
           const isVisible = section.style.display !== 'none';
           section.style.display = isVisible ? 'none' : 'block';
         }
         
-        // Show/hide close fields based on selection
         function toggleCloseFields() {
           const status = document.getElementById('finalStatus').value;
           
@@ -553,19 +901,18 @@ async function loadTasks() {
           }
         }
         
-        // Submit close task
         async function submitCloseTask() {
           const taskSelect = document.getElementById('taskId');
           const finalStatus = document.getElementById('finalStatus').value;
           
           if (!taskSelect.value) {
-            alert('Please select a task first');
+            showError('taskId', 'Please select a task first');
             taskSelect.focus();
             return;
           }
           
           if (!finalStatus) {
-            alert('Please select an outcome (Won/Lost/No Response)');
+            showError('finalStatus', 'Please select an outcome (Won/Lost/No Response)');
             document.getElementById('finalStatus').focus();
             return;
           }
@@ -574,7 +921,7 @@ async function loadTasks() {
           if (finalStatus === 'won') {
             const actualValue = document.getElementById('actualValue').value;
             if (!actualValue || Number(actualValue) <= 0) {
-              alert('Please enter a valid actual value for Won tasks');
+              showError('actualValue', 'Please enter a valid actual value for Won tasks');
               return;
             }
           }
@@ -582,7 +929,7 @@ async function loadTasks() {
           if (finalStatus === 'lost') {
             const lossReason = document.getElementById('lossReason').value;
             if (!lossReason) {
-              alert('Please select a loss reason');
+              showError('lossReason', 'Please select a loss reason');
               return;
             }
           }
@@ -679,6 +1026,9 @@ async function loadTasks() {
               } else {
                 this.value = '';
               }
+              
+              // Save draft
+              saveFormDraft();
             });
             
             // Also handle paste
@@ -692,17 +1042,8 @@ async function loadTasks() {
                     this.value = new Intl.NumberFormat('en-NG').format(numValue);
                   }
                 }
+                saveFormDraft();
               }, 10);
-            });
-            
-            // Validate before form submission
-            document.getElementById('new-form').addEventListener('submit', function(e) {
-              if (!hiddenField.value || hiddenField.value === '0' || isNaN(hiddenField.value)) {
-                e.preventDefault();
-                alert('Please enter a valid ₦ estimate');
-                displayField.focus();
-                displayField.select();
-              }
             });
           }
         });
