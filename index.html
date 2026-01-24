@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proposal Management System</title>
+    <style>
+        :root {
+            --primary: #D4AF37;
+            --primary-dark: #B8972E;
+            --success: #D4AF37;
+            --danger: #dc3545;
+            --light: #F5F0E1;
+            --dark: #4A2C2A;
+            --gray: #6B5A5A;
+            --border: #D4AF37;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--light);
+            color: var(--dark);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(74, 44, 42, 0.1);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        header {
+            background: linear-gradient(135deg, #D4AF37, #B8972E);
+            color: white;
+            padding: 40px 20px 30px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            position: relative;
+        }
+        .logo {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            height: 90px;
+            width: auto;
+            max-width: 200px;
+            object-fit: contain;
+        }
+        header h1 { 
+            margin: 0; 
+            font-size: 2.8rem; 
+            font-weight: 800; 
+            letter-spacing: 2px; 
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.3); 
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 16px;
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: var(--gray);
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            color: var(--dark);
+            border-bottom: 3px solid var(--primary);
+            font-weight: 600;
+        }
+        .tab-panel {
+            display: none;
+            padding: 30px;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        form {
+            display: grid;
+            gap: 20px;
+        }
+        label {
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            color: var(--dark);
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #4A2C2A;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            color: var(--dark);
+            background: white;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.25);
+        }
+        .conditional {
+            transition: opacity 0.3s ease, max-height 0.3s ease;
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+        }
+        .conditional.visible {
+            max-height: 300px;
+            opacity: 1;
+        }
+        button {
+            padding: 14px;
+            background: var(--primary);
+            color: var(--dark);
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            border: 1px solid rgba(74, 44, 42, 0.1);
+        }
+        button:hover { 
+            background: var(--primary-dark); 
+            color: white;
+        }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .banner {
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            animation: slideIn 0.3s ease;
+            border: 1px solid;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .success { 
+            background: rgba(212, 175, 55, 0.1); 
+            color: var(--dark); 
+            border-color: var(--primary);
+        }
+        .error { 
+            background: rgba(220, 53, 69, 0.1); 
+            color: #721c24; 
+            border: 1px solid rgba(220, 53, 69, 0.3); 
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+        .loading::after {
+            content: ' ⏳';
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @media (max-width: 600px) {
+            .tab-content { padding: 20px; }
+            .tabs { flex-direction: column; }
+            .tab-btn { padding: 14px; font-size: 1rem; }
+            .logo {
+                position: relative;
+                top: 0;
+                left: 0;
+                margin: 0 auto 20px;
+                display: block;
+                height: 70px;
+            }
+            header {
+                padding: 30px 20px;
+            }
+        }
+        hr {
+            border: none;
+            height: 1px;
+            background: linear-gradient(to right, transparent, var(--primary), transparent);
+            margin: 30px 0;
+        }
+        h3 {
+            color: var(--dark);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <!-- Logo - REPLACE THE SRC WITH YOUR ACTUAL LOGO URL -->
+            <img src="https://drive.google.com/uc?export=view&id=1GwnBv9IS3e8jN6vTS9PolOi2gv8KubU4" 
+                 alt="Goldenmuv Logo" 
+                 class="logo">
+            <h1>GPMS</h1>
+            <p style="margin: 8px 0 0; font-size: 1.25rem; font-weight: 500; opacity: 0.95; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">Goldenmuv Proposal Management System</p>
+        </header>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('new')">📋 New Opportunity (Partners)</button>
+            <button class="tab-btn" onclick="showTab('update')">🔄 Update Task (Associates)</button>
+        </div>
+        <div class="tab-content">
+            <!-- New Opportunity Form -->
+            <div id="new-tab" class="tab-panel active">
+                <form id="new-form">
+                    <input type="hidden" name="formType" value="newOpportunity">
+                    <label for="clientName">Client Name:*</label>
+                    <input type="text" id="clientName" name="clientName" required placeholder="e.g., ABC Corp">
+                    <label for="source">Opportunity Source:*</label>
+                    <select id="source" name="source" required>
+                        <option value="">Select...</option>
+                        <option value="existing">Existing Client</option>
+                        <option value="referral">Referral</option>
+                        <option value="cold">Cold Outreach</option>
+                        <option value="partner">Partner Network</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <label for="description">Description:*</label>
+                    <textarea id="description" name="description" required rows="4" placeholder="Brief overview of the opportunity..."></textarea>
+                    <label for="nairaEstimateDisplay">₦ Estimate:*</label>
+                    <input type="text" id="nairaEstimateDisplay" required placeholder="e.g., 5,000,000">
+                    <input type="hidden" id="nairaEstimate" name="nairaEstimate">
+                    <label for="assignedStaff">Assigned Staff:*</label>
+                    <select id="assignedStaff" name="assignedStaff" required>
+                        <option value="">Select...</option>
+                        <option value="staff1">Mr. Immanuelson Sam</option>
+                        <option value="staff2">Ms. Joan Alaribe</option>
+                        <option value="staff3">Mr. Emmanuel Agama</option>
+                        <option value="staff4">Mr. Matthew Nnaji</option>
+                        <option value="staff5">Mr. Peter Esiole</option>
+                    </select>
+                    <label for="followupPerson">Follow-up Person:*</label>
+                    <select id="followupPerson" name="followupPerson" required>
+                        <option value="">Select...</option>
+                        <option value="staff1">Mr. Immanuelson Sam</option>
+                        <option value="staff2">Ms. Joan Alaribe</option>
+                        <option value="staff3">Mr. Emmanuel Agama</option>
+                        <option value="staff4">Mr. Matthew Nnaji</option>
+                        <option value="staff5">Mr. Peter Esiole</option>
+                    </select>
+                    <label for="dueDate">Due Date:*</label>
+                    <input type="date" id="dueDate" name="dueDate" required>
+                    <button type="submit">Submit Opportunity</button>
+                </form>
+            </div>
+
+            <!-- Update Task Form -->
+            <div id="update-tab" class="tab-panel">
+                <form id="update-form">
+                    <input type="hidden" name="formType" value="updateTask">
+
+                    <!-- Add this ABOVE the task select dropdown -->
+                    <button type="button" onclick="togglePartnerSection()" 
+                            style="background: #F5F0E1; border: 1px solid #D4AF37; color: #4A2C2A; 
+                                   padding: 10px 18px; border-radius: 6px; margin-bottom: 20px; 
+                                   cursor: pointer; display: flex; align-items: center; gap: 8px;
+                                   font-weight: 600;">
+                      <span>🔓</span> Close Task (Partner)
+                    </button>
+                    
+                    <label for="taskId">Select Task:*</label>
+                    <select id="taskId" name="taskId" required>
+                        <option value="" disabled selected>Loading tasks…</option>
+                    </select>
+
+                    <!-- ADD Partner Close Section (hidden by default) -->
+                    <div id="partner-section" style="margin: 30px 0; padding: 20px; background: #F5F0E1; border-radius: 8px; border: 1px dashed #D4AF37; display: none;">
+                      <h3 style="color: #4A2C2A; margin-top: 0; display: flex; align-items: center; gap: 8px;">
+                        <span>🔒</span> Partner Actions
+                      </h3>
+                      
+                      <p style="color: #6B5A5A; margin-bottom: 15px;">
+                        Close this task as Won, Lost, or No Response. This section is visible to all for transparency.
+                      </p>
+                      
+                      <div style="background: white; padding: 20px; border-radius: 6px; border: 1px solid #D4AF37;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px; color: #4A2C2A;">Final Outcome:*</label>
+                        <select id="finalStatus" name="finalStatus" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #4A2C2A; border-radius: 4px;" onchange="toggleCloseFields()">
+                          <option value="">Select outcome...</option>
+                          <option value="won">🎉 Won</option>
+                          <option value="lost">📉 Lost</option>
+                          <option value="noresponse">⏳ No Response</option>
+                        </select>
+                        
+                        <div id="close-won-fields" style="display: none; margin-bottom: 15px;">
+                          <label style="font-weight: 600; display: block; margin-bottom: 8px; color: #4A2C2A;">₦ Actual Value (if Won):*</label>
+                          <input type="number" id="actualValue" name="actualValue" min="0" step="1000" style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; border-radius: 4px;">
+                        </div>
+                        
+                        <div id="close-lost-fields" style="display: none; margin-bottom: 15px;">
+                          <label style="font-weight: 600; display: block; margin-bottom: 8px; color: #4A2C2A;">Loss Reason:*</label>
+                          <select id="lossReason" name="lossReason" style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; border-radius: 4px;">
+                            <option value="">Select reason...</option>
+                            <option value="price">Price</option>
+                            <option value="competitor">Competitor</option>
+                            <option value="timing">Timing</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        
+                        <button type="button" onclick="submitCloseTask()" style="background: #D4AF37; color: #4A2C2A; border: 1px solid #B8972E; padding: 12px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                          Confirm Close Task
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <label for="status">Status:*</label>
+                    <select id="status" name="status" required>
+                      <option value="">Select status...</option>
+                      <option value="ready_for_review">✅ Ready for Review</option>
+                      <option value="sent_to_client">📤 Sent to Client</option>
+                    </select>
+
+                    <hr>
+
+                    <h3>📎 Upload Documents</h3>
+                    <p style="font-size: 0.95rem; color: #6B5A5A;">
+                        Upload documents related to this task (proposals, contracts, approvals).
+                    </p>
+
+                    <button type="button" onclick="openUploadForm()">Upload Files</button>
+
+                    <textarea name="notes" rows="3" placeholder="Any additional notes or comments..." style="border: 1px solid #4A2C2A;"></textarea>
+                    
+                    <div id="followup-fields" class="conditional">
+                        <label for="nextFollowupDate">Next Follow-up Date:*</label>
+                        <input type="date" id="nextFollowupDate" name="nextFollowupDate">
+                    </div>
+                    <button type="submit">Update Task</button>
+                </form>
+            </div>
+
+            <!-- Feedback -->
+            <div id="success-banner" class="banner success" style="display:none;"></div>
+            <div id="error-banner" class="banner error" style="display:none;"></div>
+            <div id="loading" class="loading">Submitting...</div>
+        </div>
+    </div>
+
+    <script>
+        // === CONFIGURATION ===
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwhAvVOF8n84R34XPWe33xXCNTyyR0RKsgUaihUPbzgryTHYlBbhQHLJD4I4nNYLkGo/exec';
+
+        // === INITIALIZATION ===
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set minimum dates
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dueDate').min = today;
+            document.getElementById('nextFollowupDate').min = today;
+
+            // Load tasks for update form
+            loadTasks();
+        });
+
+        // === TAB MANAGEMENT ===
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-panel').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+        }
+
+        // === GOOGLE FORM UPLOAD ===
+        function openUploadForm() {
+          const taskSelect = document.getElementById('taskId');
+          const taskId = taskSelect.value;
+        
+          if (!taskId) {
+            alert('Please select a task before uploading documents.');
+            taskSelect.focus();
+            return;
+          }
+        
+          // Use the CORRECT form ID from your prefill link
+          const FORM_URL =
+            'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?usp=pp_url' +
+            '&entry.1694540215=' + encodeURIComponent(taskId);
+        
+          console.log('Opening form for task:', taskId);
+          window.open(FORM_URL, '_blank');
+        }
+
+        // === FORM SUBMISSION ===
+        async function handleSubmit(formId, e) {
+            e.preventDefault();
+            const form = document.getElementById(formId);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const loading = document.getElementById('loading');
+            const successBanner = document.getElementById('success-banner');
+            const errorBanner = document.getElementById('error-banner');
+        
+            // ⭐ RESET CLASSES FIRST
+            successBanner.className = 'banner success';
+            errorBanner.className = 'banner error';
+            
+            successBanner.style.display = 'none';
+            errorBanner.style.display = 'none';
+            loading.style.display = 'block';
+            submitBtn.disabled = true;
+        
+            try {
+                const formData = new FormData(form);
+        
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'cors'
+                });
+        
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
+        
+                const result = await response.json();
+        
+                if (result.status === 'success') {
+                    // ⭐ ENSURE SUCCESS CLASS
+                    successBanner.className = 'banner success';
+                    successBanner.textContent = result.message || '✓ Success!';
+                    successBanner.style.display = 'block';
+        
+                    form.reset();
+        
+                    document.querySelectorAll('.conditional').forEach(field => {
+                        if (field && field.classList) { // ⭐ ADD NULL CHECK
+                            field.classList.remove('visible');
+                            if (field.querySelectorAll) { // ⭐ ADD SAFETY CHECK
+                                field.querySelectorAll('input, select').forEach(input => {
+                                    if (input) { // ⭐ ADD NULL CHECK
+                                        input.required = false;
+                                        if (input.type === 'number') input.value = '';
+                                        if (input.type === 'date') input.value = '';
+                                        if (input.tagName === 'SELECT') input.selectedIndex = 0;
+                                    }
+                                });
+                            }
+                        }
+                    });
+        
+                    if (formId === 'update-form') {
+                        await loadTasks();
+                    }
+        
+                    setTimeout(() => {
+                        successBanner.style.display = 'none';
+                    }, 6000);
+                } else {
+                    throw new Error(result.message || 'Submission failed');
+                }
+        
+            } catch (error) {
+                // ⭐ ENSURE ERROR CLASS
+                errorBanner.className = 'banner error';
+                errorBanner.textContent = `✗ ${error.message}`;
+                errorBanner.style.display = 'block';
+                console.error('Submission error:', error);
+            } finally {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        }
+
+        // === TASK LOADING ===
+        // === TASK LOADING ===
+async function loadTasks() {
+    const select = document.getElementById('taskId');
+    
+    try {
+        // Show loading state
+        select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
+        
+        // Call your Apps Script
+        const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
+            mode: 'cors',
+            cache: 'no-cache'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const tasks = await response.json();
+        
+        // Debug log (open browser console to see this)
+        console.log('Tasks loaded:', tasks);
+        
+        // Clear and populate dropdown
+        select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
+        
+        if (!tasks || tasks.length === 0) {
+            select.innerHTML += '<option value="">No active tasks found</option>';
+            return;
+        }
+        
+        // Add each task to dropdown
+        tasks.forEach(task => {
+            const option = document.createElement('option');
+            option.value = task.id;
+            option.textContent = `${task.clientName} - ${task.status} (Due: ${task.dueDate || 'No date'})`;
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+        select.innerHTML = '<option value="">Error loading tasks</option>';
+        
+        // Show error in banner
+        const errorBanner = document.getElementById('error-banner');
+        errorBanner.textContent = 'Failed to load tasks. Check console for details.';
+        errorBanner.style.display = 'block';
+    }
+}
+
+        // === EVENT LISTENERS ===
+        document.getElementById('new-form').addEventListener('submit', e => handleSubmit('new-form', e));
+        document.getElementById('update-form').addEventListener('submit', e => handleSubmit('update-form', e));
+
+        // Toggle partner section visibility
+        function togglePartnerSection() {
+          const section = document.getElementById('partner-section');
+          const isVisible = section.style.display !== 'none';
+          section.style.display = isVisible ? 'none' : 'block';
+        }
+        
+        // Show/hide close fields based on selection
+        function toggleCloseFields() {
+          const status = document.getElementById('finalStatus').value;
+          
+          // Hide all
+          document.getElementById('close-won-fields').style.display = 'none';
+          document.getElementById('close-lost-fields').style.display = 'none';
+          
+          // Show relevant fields
+          if (status === 'won') {
+            document.getElementById('close-won-fields').style.display = 'block';
+          } else if (status === 'lost') {
+            document.getElementById('close-lost-fields').style.display = 'block';
+          }
+        }
+        
+        // Submit close task
+        async function submitCloseTask() {
+          const taskSelect = document.getElementById('taskId');
+          const finalStatus = document.getElementById('finalStatus').value;
+          
+          if (!taskSelect.value) {
+            alert('Please select a task first');
+            taskSelect.focus();
+            return;
+          }
+          
+          if (!finalStatus) {
+            alert('Please select an outcome (Won/Lost/No Response)');
+            document.getElementById('finalStatus').focus();
+            return;
+          }
+          
+          // Validate won/lost fields
+          if (finalStatus === 'won') {
+            const actualValue = document.getElementById('actualValue').value;
+            if (!actualValue || Number(actualValue) <= 0) {
+              alert('Please enter a valid actual value for Won tasks');
+              return;
+            }
+          }
+          
+          if (finalStatus === 'lost') {
+            const lossReason = document.getElementById('lossReason').value;
+            if (!lossReason) {
+              alert('Please select a loss reason');
+              return;
+            }
+          }
+          
+          // Prepare data
+          const formData = new FormData();
+          formData.append('formType', 'closeTask');
+          formData.append('taskId', taskSelect.value);
+          formData.append('finalStatus', finalStatus);
+          
+          if (finalStatus === 'won') {
+            formData.append('actualValue', document.getElementById('actualValue').value);
+          }
+          
+          if (finalStatus === 'lost') {
+            formData.append('lossReason', document.getElementById('lossReason').value);
+          }
+          
+          // Submit
+          const loading = document.getElementById('loading');
+          const successBanner = document.getElementById('success-banner');
+          const errorBanner = document.getElementById('error-banner');
+          
+          loading.style.display = 'block';
+          successBanner.style.display = 'none';
+          errorBanner.style.display = 'none';
+          
+          try {
+            const response = await fetch(SCRIPT_URL, {
+              method: 'POST',
+              body: formData,
+              mode: 'cors'
+            });
+            
+            const result = await response.json();
+            
+            // ⭐⭐ FLEXIBLE SUCCESS DETECTION
+            const isSuccess = result.status === 'success' || 
+                              (result.message && result.message.includes('✅')) ||
+                              (result.message && result.message.includes('closed as'));
+            
+            if (isSuccess) {
+                successBanner.className = 'banner success';
+                successBanner.textContent = result.message;
+                successBanner.style.display = 'block';
+                
+                // Reload tasks and reset form
+                await loadTasks();
+                document.getElementById('finalStatus').value = '';
+                document.getElementById('actualValue').value = '';
+                document.getElementById('lossReason').value = '';
+                document.getElementById('close-won-fields').style.display = 'none';
+                document.getElementById('close-lost-fields').style.display = 'none';
+                
+                // Hide partner section after successful close
+                document.getElementById('partner-section').style.display = 'none';
+                
+                setTimeout(() => {
+                    successBanner.style.display = 'none';
+                }, 6000);
+            } else {
+                throw new Error(result.message || 'Failed to close task');
+            }
+          } catch (error) {
+            console.error('Full error:', error);
+            errorBanner.className = 'banner error';
+            errorBanner.textContent = `✗ ${error.message}`;
+            errorBanner.style.display = 'block';
+          } finally {
+            loading.style.display = 'none';
+          }
+        }
+        
+        // === NAIRA ESTIMATE FORMATTING ===
+        document.addEventListener('DOMContentLoaded', function() {
+          const displayField = document.getElementById('nairaEstimateDisplay');
+          const hiddenField = document.getElementById('nairaEstimate');
+          
+          if (displayField && hiddenField) {
+            // Format as user types
+            displayField.addEventListener('input', function(e) {
+              // Remove all non-digits (commas, spaces, etc.)
+              let rawValue = this.value.replace(/[^\d]/g, '');
+              
+              // Store raw number in hidden field (for form submission)
+              hiddenField.value = rawValue;
+              
+              // Format with commas for display
+              if (rawValue) {
+                const numValue = parseInt(rawValue);
+                if (!isNaN(numValue)) {
+                  this.value = new Intl.NumberFormat('en-NG').format(numValue);
+                }
+              } else {
+                this.value = '';
+              }
+            });
+            
+            // Also handle paste
+            displayField.addEventListener('paste', function(e) {
+              setTimeout(() => {
+                let rawValue = this.value.replace(/[^\d]/g, '');
+                hiddenField.value = rawValue;
+                if (rawValue) {
+                  const numValue = parseInt(rawValue);
+                  if (!isNaN(numValue)) {
+                    this.value = new Intl.NumberFormat('en-NG').format(numValue);
+                  }
+                }
+              }, 10);
+            });
+            
+            // Validate before form submission
+            document.getElementById('new-form').addEventListener('submit', function(e) {
+              if (!hiddenField.value || hiddenField.value === '0' || isNaN(hiddenField.value)) {
+                e.preventDefault();
+                alert('Please enter a valid ₦ estimate');
+                displayField.focus();
+                displayField.select();
+              }
+            });
+          }
+        });
+        
+    </script>
+</body>
+</html>
