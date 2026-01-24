@@ -604,104 +604,110 @@
         }
 
         // === FORM SUBMISSION ===
-        async function handleSubmit(formId, e) {
-            e.preventDefault();
-            
-            // Validate form
-            if (!validateForm(formId)) {
-                return;
-            }
-            
-            const form = document.getElementById(formId);
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const loading = document.getElementById('loading');
-            const successBanner = document.getElementById('success-banner');
-            const errorBanner = document.getElementById('error-banner');
-        
-            // ⭐ RESET CLASSES FIRST
-            successBanner.className = 'banner success';
-            errorBanner.className = 'banner error';
-            
-            successBanner.style.display = 'none';
-            errorBanner.style.display = 'none';
-            loading.style.display = 'block';
-            submitBtn.disabled = true;
-        
-            try {
-                const formData = new FormData(form);
-        
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: formData,
-                    mode: 'cors'
-                });
-        
-                if (!response.ok) {
-                    throw new Error(`Server responded with ${response.status}`);
-                }
-        
-                const result = await response.json();
-        
-                if (result.status === 'success') {
-                    // ⭐ ENSURE SUCCESS CLASS
-                    successBanner.className = 'banner success';
-                    successBanner.textContent = result.message || '✓ Success!';
-                    successBanner.style.display = 'block';
-        
-                    // Clear form
-                    form.reset();
-                    
-                    // Clear draft
-                    if (formId === 'new-form') {
-                        localStorage.removeItem('newOpportunityDraft');
-                        document.getElementById('draft-notice').style.display = 'none';
-                    }
-        
-                    // Clear conditional fields
-                    document.querySelectorAll('.conditional').forEach(field => {
-                        if (field && field.classList) {
-                            field.classList.remove('visible');
-                            if (field.querySelectorAll) {
-                                field.querySelectorAll('input, select').forEach(input => {
-                                    if (input) {
-                                        input.required = false;
-                                        if (input.type === 'number') input.value = '';
-                                        if (input.type === 'date') input.value = '';
-                                        if (input.tagName === 'SELECT') input.selectedIndex = 0;
-                                    }
-                                });
-                            }
-                        }
-                    });
-        
-                    // Reload tasks for update form
-                    if (formId === 'update-form') {
-                        await loadTasks();
-                    }
-        
-                    // Auto-refresh tasks after a delay
-                    setTimeout(() => {
-                        loadTasks();
-                    }, 1500);
-        
-                    setTimeout(() => {
-                        successBanner.style.display = 'none';
-                    }, 6000);
-                } else {
-                    throw new Error(result.message || 'Submission failed');
-                }
-        
-            } catch (error) {
-                // ⭐ ENSURE ERROR CLASS
-                errorBanner.className = 'banner error';
-                errorBanner.textContent = `✗ ${error.message}`;
-                errorBanner.style.display = 'block';
-                console.error('Submission error:', error);
-            } finally {
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
-            }
+        // === FORM SUBMISSION ===
+async function handleSubmit(formId, e) {
+    e.preventDefault();
+    
+    // Validate form
+    if (!validateForm(formId)) {
+        return;
+    }
+    
+    const form = document.getElementById(formId);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const loading = document.getElementById('loading');
+    const successBanner = document.getElementById('success-banner');
+    const errorBanner = document.getElementById('error-banner');
+
+    // ⭐ RESET CLASSES FIRST
+    successBanner.className = 'banner success';
+    errorBanner.className = 'banner error';
+    
+    successBanner.style.display = 'none';
+    errorBanner.style.display = 'none';
+    loading.style.display = 'block';
+    submitBtn.disabled = true;
+
+    try {
+        const formData = new FormData(form);
+
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: formData,
+            mode: 'cors'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
         }
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            // Format success message with checkmark
+            let successMessage = result.message || '✓ Success!';
+            if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+                successMessage = '✓ ' + successMessage;
+            }
+            
+            successBanner.className = 'banner success';
+            successBanner.textContent = successMessage;
+            successBanner.style.display = 'block';
+
+            // Clear form
+            form.reset();
+            
+            // Clear draft
+            if (formId === 'new-form') {
+                localStorage.removeItem('newOpportunityDraft');
+                document.getElementById('draft-notice').style.display = 'none';
+            }
+
+            // Clear conditional fields
+            document.querySelectorAll('.conditional').forEach(field => {
+                if (field && field.classList) {
+                    field.classList.remove('visible');
+                    if (field.querySelectorAll) {
+                        field.querySelectorAll('input, select').forEach(input => {
+                            if (input) {
+                                input.required = false;
+                                if (input.type === 'number') input.value = '';
+                                if (input.type === 'date') input.value = '';
+                                if (input.tagName === 'SELECT') input.selectedIndex = 0;
+                            }
+                        });
+                    }
+                }
+            });
+
+            // Reload tasks for update form
+            if (formId === 'update-form') {
+                await loadTasks();
+            }
+
+            // Auto-refresh tasks after a delay
+            setTimeout(() => {
+                loadTasks();
+            }, 1500);
+
+            setTimeout(() => {
+                successBanner.style.display = 'none';
+            }, 6000);
+        } else {
+            throw new Error(result.message || 'Submission failed');
+        }
+
+    } catch (error) {
+        // ⭐ ENSURE ERROR CLASS
+        errorBanner.className = 'banner error';
+        errorBanner.textContent = `✗ ${error.message}`;
+        errorBanner.style.display = 'block';
+        console.error('Submission error:', error);
+    } finally {
+        loading.style.display = 'none';
+        submitBtn.disabled = false;
+    }
+}
 
         // === TASK LOADING WITH SEARCH ===
         let allTasks = [];
@@ -939,33 +945,34 @@
             
             const result = await response.json();
             
-            // ⭐⭐ FLEXIBLE SUCCESS DETECTION
-            const isSuccess = result.status === 'success' || 
-                              (result.message && result.message.includes('✅')) ||
-                              (result.message && result.message.includes('closed as'));
-            
-            if (isSuccess) {
-                successBanner.className = 'banner success';
-                successBanner.textContent = result.message;
-                successBanner.style.display = 'block';
-                
-                // Reload tasks and reset form
-                await loadTasks();
-                document.getElementById('finalStatus').value = '';
-                document.getElementById('actualValue').value = '';
-                document.getElementById('lossReason').value = '';
-                document.getElementById('close-won-fields').style.display = 'none';
-                document.getElementById('close-lost-fields').style.display = 'none';
-                
-                // Hide partner section after successful close
-                document.getElementById('partner-section').style.display = 'none';
-                
-                setTimeout(() => {
-                    successBanner.style.display = 'none';
-                }, 6000);
-            } else {
-                throw new Error(result.message || 'Failed to close task');
-            }
+           if (result.status === 'success') {
+        // Format the message to ensure it has a checkmark
+        let successMessage = result.message;
+        if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+            successMessage = '✓ ' + successMessage;
+        }
+        
+        successBanner.className = 'banner success';
+        successBanner.textContent = successMessage;
+        successBanner.style.display = 'block';
+        
+        // Reload tasks and reset form
+        await loadTasks();
+        document.getElementById('finalStatus').value = '';
+        document.getElementById('actualValue').value = '';
+        document.getElementById('lossReason').value = '';
+        document.getElementById('close-won-fields').style.display = 'none';
+        document.getElementById('close-lost-fields').style.display = 'none';
+        
+        // Hide partner section after successful close
+        document.getElementById('partner-section').style.display = 'none';
+        
+        setTimeout(() => {
+            successBanner.style.display = 'none';
+        }, 6000);
+    } else {
+        throw new Error(result.message || 'Failed to close task');
+    }
           } catch (error) {
             console.error('Full error:', error);
             errorBanner.className = 'banner error';
