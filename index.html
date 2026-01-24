@@ -362,7 +362,7 @@
                       </h3>
                       
                       <p style="color: #6B5A5A; margin-bottom: 15px;">
-                        Close this task as Won, Lost, or No Response. This section is visible to all for transparency.
+                        <!-- Removed: "Close this task as Won, Lost, or No Response. This section is visible to all for transparency." -->
                       </p>
                       
                       <div style="background: white; padding: 20px; border-radius: 6px; border: 1px solid #D4AF37;">
@@ -409,11 +409,15 @@
                     <hr>
 
                     <h3>📎 Upload Documents</h3>
-                    <p style="font-size: 0.95rem; color: #6B5A5A;">
+                    <p style="font-size: 0.95rem; color: #6B5A5A; margin-bottom: 15px;">
                         Upload documents related to this task (proposals, contracts, approvals).
+                        <br><small>The Task ID will be automatically filled in the Google Form.</small>
                     </p>
 
-                    <button type="button" onclick="openUploadModal()">Upload Files</button>
+                    <button type="button" onclick="openGoogleFormDirect()" 
+                            style="background: #D4AF37; color: #4A2C2A; border: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                        📤 Upload Files
+                    </button>
 
                     <textarea name="notes" rows="3" placeholder="Any additional notes or comments..." style="border: 1px solid #4A2C2A;"></textarea>
                     
@@ -429,22 +433,6 @@
             <div id="success-banner" class="banner success" style="display:none;"></div>
             <div id="error-banner" class="banner error" style="display:none;"></div>
             <div id="loading" class="loading">Submitting...</div>
-        </div>
-    </div>
-
-    <!-- Google Form Modal -->
-    <div id="upload-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(74, 44, 42, 0.8); z-index: 1000; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto; border: 2px solid #D4AF37;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 style="color: #4A2C2A; margin: 0;">📎 Upload Documents</h3>
-                <button onclick="closeUploadModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #4A2C2A;">&times;</button>
-            </div>
-            <iframe id="google-form-iframe" style="width: 100%; height: 500px; border: 1px solid #D4AF37; border-radius: 6px;"></iframe>
-            <div style="margin-top: 15px; text-align: center;">
-                <button onclick="closeUploadModal()" style="background: #F5F0E1; border: 1px solid #D4AF37; color: #4A2C2A; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    Close Upload Form
-                </button>
-            </div>
         </div>
     </div>
 
@@ -499,11 +487,6 @@
                         }
                     }
                 }
-                
-                // Escape to close modal
-                if (e.key === 'Escape') {
-                    closeUploadModal();
-                }
             });
         }
 
@@ -521,8 +504,8 @@
             }, 100);
         }
 
-        // === GOOGLE FORM MODAL ===
-        function openUploadModal() {
+        // === SIMPLE GOOGLE FORM OPENER ===
+        function openGoogleFormDirect() {
             const taskSelect = document.getElementById('taskId');
             const taskId = taskSelect.value;
             
@@ -532,19 +515,13 @@
                 return;
             }
             
-            // Prefill the form URL
-            const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?embedded=true&usp=pp_url&entry.1694540215=' + encodeURIComponent(taskId);
+            // Construct the Google Form URL with pre-filled Task ID
+            const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?usp=pp_url&entry.1694540215=' + encodeURIComponent(taskId);
             
-            // Set iframe source
-            document.getElementById('google-form-iframe').src = FORM_URL;
+            console.log('Opening Google Form for task:', taskId);
             
-            // Show modal
-            document.getElementById('upload-modal').style.display = 'flex';
-        }
-
-        function closeUploadModal() {
-            document.getElementById('upload-modal').style.display = 'none';
-            document.getElementById('google-form-iframe').src = '';
+            // Open in new tab
+            window.open(FORM_URL, '_blank', 'noopener,noreferrer');
         }
 
         // === FORM VALIDATION ===
@@ -879,7 +856,7 @@
         document.getElementById('new-form').addEventListener('submit', e => handleSubmit('new-form', e));
         document.getElementById('update-form').addEventListener('submit', e => handleSubmit('update-form', e));
 
-        // === PARTER SECTION FUNCTIONS ===
+        // === PARTNER SECTION FUNCTIONS ===
         function togglePartnerSection() {
           const section = document.getElementById('partner-section');
           const isVisible = section.style.display !== 'none';
