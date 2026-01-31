@@ -1256,31 +1256,37 @@ async function handleSubmit(formId, e) {
      Request Push Permission & Token (multi-device array)
      =============================== */
   async function requestNotificationPermission(user) {
-    if (!user) return;
+  if (!user) return;
 
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        console.log("Notification permission denied");
-        return;
-      }
-
-      const token = await getToken(messaging, {
-        vapidKey: "BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ"
-      });
-
-      console.log("FCM Token:", token);
-
-      if (token) {
-        await updateDoc(doc(db, "users", user.uid), {
-          fcmTokens: arrayUnion(token),
-          updatedAt: serverTimestamp()
-        });
-      }
-    } catch (err) {
-      console.error("Push permission/token error:", err);
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.log("Notification permission denied");
+      return;
     }
+
+    // Explicitly register SW from the correct subpath
+    const swRegistration = await navigator.serviceWorker.register('/gpms/firebase-messaging-sw.js', {
+      scope: '/gpms/'  // Important: scope must match your app's base path
+    });
+
+    const token = await getToken(messaging, {
+      vapidKey: "BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ",
+      serviceWorkerRegistration: swRegistration   // Pass the registration
+    });
+
+    console.log("FCM Token:", token);
+
+    if (token) {
+      await updateDoc(doc(db, "users", user.uid), {
+        fcmTokens: arrayUnion(token),
+        updatedAt: serverTimestamp()
+      });
+    }
+  } catch (err) {
+    console.error("Push permission/token error:", err);
   }
+}
 
   /* ===============================
      Approve Handler (sends userUid for backend check)
