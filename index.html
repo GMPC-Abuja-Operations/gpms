@@ -1259,20 +1259,32 @@ async function handleSubmit(formId, e) {
   if (!user) return;
 
   try {
+    // Step 1: Request browser permission
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
       console.log("Notification permission denied");
       return;
     }
 
-    // Explicitly register SW from the correct subpath
-    const swRegistration = await navigator.serviceWorker.register('/gpms/firebase-messaging-sw.js', {
-      scope: '/gpms/'  // Important: scope must match your app's base path
+    console.log("Notification permission granted — registering SW...");
+
+    // Step 2: Register the Service Worker with correct scope
+    const swUrl = '/gpms/firebase-messaging-sw.js';
+    const registration = await navigator.serviceWorker.register(swUrl, {
+      scope: '/gpms/'
     });
 
+    console.log("Service Worker registered with scope:", registration.scope);
+
+    // Step 3: IMPORTANT — wait for the SW to be fully active/ready
+    await navigator.serviceWorker.ready;  // This promise resolves when SW is active
+
+    console.log("Service Worker is now active and ready");
+
+    // Step 4: Now safely get the FCM token
     const token = await getToken(messaging, {
       vapidKey: "BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ",
-      serviceWorkerRegistration: swRegistration   // Pass the registration
+      serviceWorkerRegistration: registration
     });
 
     console.log("FCM Token:", token);
@@ -1282,9 +1294,11 @@ async function handleSubmit(formId, e) {
         fcmTokens: arrayUnion(token),
         updatedAt: serverTimestamp()
       });
+      console.log("Token saved to Firestore");
     }
   } catch (err) {
     console.error("Push permission/token error:", err);
+    alert("Push setup failed: " + (err.message || "Unknown error"));
   }
 }
 
