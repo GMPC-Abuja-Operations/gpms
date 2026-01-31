@@ -253,7 +253,48 @@
                  class="logo">
             <h1>GPMS</h1>
             <p style="margin: 8px 0 0; font-size: 1.25rem; font-weight: 500; opacity: 0.95; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">Goldenmuv Proposal Management System</p>
+        <!-- Place this inside your <header> element, preferably right after the <h1> or logo -->
+<button id="sign-in-btn"
+        style="position: absolute; top: 20px; right: 30px; padding: 10px 14px;
+               background: #2563eb; color: white; border: none; border-radius: 6px;
+               font-weight: 500; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+  Sign in with Google
+</button>
+
+<div id="user-info"
+     style="display: none; position: absolute; top: 20px; right: 30px;
+            color: white; font-weight: 500;">
+  Hello, <span id="user-name"></span>
+  <button id="sign-out-btn"
+          style="background: none; border: none; color: #93c5fd; margin-left: 12px;
+                 cursor: pointer; text-decoration: underline; font-weight: normal;">
+    Sign out
+  </button>
+</div>
         </header>
+
+        <div id="notification-bell"
+     style="position:absolute; top:60px; right:30px;
+            font-size:1.5rem; cursor:pointer; z-index: 1000;">
+  🔔 
+  <span id="notification-count"
+        style="display:none; background:red; color:white;
+               border-radius:50%; padding:2px 6px; font-size:0.75rem;
+               position: absolute; top: -8px; right: -8px;">
+    0
+  </span>
+</div>
+
+<div id="notification-panel"
+     style="display:none; position:absolute; top:95px; right:30px;
+            width:340px; background:white; border:1px solid #ddd;
+            border-radius:8px; padding:15px;
+            box-shadow:0 4px 12px rgba(0,0,0,0.15);
+            max-height:420px; overflow-y:auto; z-index: 999;">
+  <h3 style="margin-top:0; color: #333;">Notifications</h3>
+  <div id="notification-list" style="font-size: 0.95rem;"></div>
+</div>
+        
         <div class="tabs">
             <button class="tab-btn active" onclick="showTab('new')" id="tab-new">
                 📋 New Opportunity (Partners) <span class="keyboard-hint">Ctrl+1</span>
@@ -1032,5 +1073,270 @@ async function handleSubmit(formId, e) {
         });
         
     </script>
+
+<script type="module">
+  /* ===============================
+     Firebase SDK imports (MODULAR) - v12.8.0 from your Firebase snippet
+     =============================== */
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    query,
+    where,
+    orderBy,
+    onSnapshot,
+    doc,
+    setDoc,
+    updateDoc,
+    arrayUnion,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+  import {
+    getMessaging,
+    getToken
+  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-messaging.js";
+
+  /* ===============================
+     Configuration
+     =============================== */
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXnezA7i4xDyN_EitNIGi3g0Pv4dDgAFJV96wVHxvQqx3hjt43Rcwj_S4AC5CkC7Fy/exec"; // ← CHANGE THIS TO YOUR REAL DEPLOYED WEB APP URL
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
+    authDomain: "gpms-notifications.firebaseapp.com",
+    projectId: "gpms-notifications",
+    storageBucket: "gpms-notifications.firebasestorage.app",
+    messagingSenderId: "240580625031",
+    appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
+    measurementId: "G-D41F7DQVLP"
+  };
+
+  /* ===============================
+     Initialize Firebase
+     =============================== */
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const messaging = getMessaging(app);
+
+  const provider = new GoogleAuthProvider();
+
+  /* ===============================
+     Global unsubscribe for notifications (prevents leaks)
+     =============================== */
+  let unsubscribeNotifications = null;
+
+  /* ===============================
+     Auth & UI Handlers
+     =============================== */
+  document.getElementById("sign-in-btn")?.addEventListener("click", async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      console.log("Signed in as:", result.user.displayName, result.user.email);
+    } catch (error) {
+      console.error("Sign-in failed:", error.code, error.message);
+      alert("Sign-in failed: " + error.message);
+    }
+  });
+
+  document.getElementById("sign-out-btn")?.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      console.log("Signed out successfully");
+    } catch (error) {
+      console.error("Sign-out failed:", error);
+    }
+  });
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      document.getElementById("sign-in-btn").style.display = "none";
+      document.getElementById("user-info").style.display = "block";
+      document.getElementById("user-name").textContent = user.displayName || user.email.split('@')[0];
+
+      // Save/update user profile
+      try {
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: user.displayName,
+          lastSignIn: serverTimestamp()
+        }, { merge: true });
+      } catch (err) {
+        console.error("Failed to save user profile:", err);
+      }
+
+      loadNotifications(user.uid);
+      requestNotificationPermission(user);
+    } else {
+      document.getElementById("sign-in-btn").style.display = "block";
+      document.getElementById("user-info").style.display = "none";
+      document.getElementById("notification-panel").style.display = "none";
+
+      // Clean up listener on sign-out
+      if (unsubscribeNotifications) {
+        unsubscribeNotifications();
+        unsubscribeNotifications = null;
+      }
+    }
+  });
+
+  /* ===============================
+     Load Notifications (real-time, with unsubscribe)
+     =============================== */
+  function loadNotifications(uid) {
+    if (!uid) return;
+
+    // Clean up previous listener
+    if (unsubscribeNotifications) {
+      unsubscribeNotifications();
+      unsubscribeNotifications = null;
+    }
+
+    const q = query(
+      collection(db, "notifications"),
+      where("recipients", "array-contains", uid),
+      where("status", "==", "pending"),
+      orderBy("timestamp", "desc")
+    );
+
+    unsubscribeNotifications = onSnapshot(q, (snapshot) => {
+      const list = document.getElementById("notification-list");
+      if (!list) return;
+
+      list.innerHTML = "";
+      let count = 0;
+
+      snapshot.forEach((docSnap) => {
+        const notif = docSnap.data();
+        count++;
+
+        const isApprover = notif.approverUid === auth.currentUser?.uid;
+
+        const item = document.createElement("div");
+        item.style = "border-bottom:1px solid #eee; padding:10px 0;";
+        item.innerHTML = `
+          <strong>${notif.title || "Review Request"}</strong><br>
+          ${notif.message || "No message"}<br>
+          <a href="${notif.driveLink || "#"}" target="_blank" style="color:var(--primary);">View Folder →</a><br><br>
+          ${isApprover ? `<button onclick="handleApprove('${docSnap.id}', '${notif.taskId}')">Approve</button>` : ""}
+          <button onclick="handleComment('${docSnap.id}', '${notif.taskId}')">Comment</button>
+        `;
+        list.appendChild(item);
+      });
+
+      const badge = document.getElementById("notification-count");
+      if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? "inline" : "none";
+      }
+    }, (error) => {
+      console.error("Notifications listener error:", error);
+    });
+  }
+
+  /* ===============================
+     Bell Toggle
+     =============================== */
+  document.getElementById("notification-bell")?.addEventListener("click", () => {
+    const panel = document.getElementById("notification-panel");
+    if (panel) {
+      panel.style.display = panel.style.display === "none" ? "block" : "none";
+    }
+  });
+
+  /* ===============================
+     Request Push Permission & Token (multi-device array)
+     =============================== */
+  async function requestNotificationPermission(user) {
+    if (!user) return;
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        console.log("Notification permission denied");
+        return;
+      }
+
+      const token = await getToken(messaging, {
+        vapidKey: "BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ"
+      });
+
+      console.log("FCM Token:", token);
+
+      if (token) {
+        await updateDoc(doc(db, "users", user.uid), {
+          fcmTokens: arrayUnion(token),
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (err) {
+      console.error("Push permission/token error:", err);
+    }
+  }
+
+  /* ===============================
+     Approve Handler (sends userUid for backend check)
+     =============================== */
+window.handleApprove = async (notificationId, taskId) => {
+  if (!auth.currentUser) return alert("Please sign in first");
+
+  try {
+    // Step 1: Mark notification as approved in Firestore
+    await updateDoc(doc(db, "notifications", notificationId), {
+      status: "approved",
+      approvedBy: auth.currentUser.uid,
+      approvedAt: serverTimestamp()
+    });
+
+    // Step 2: Notify the associate (we'll add this in Apps Script later)
+    // For now, just alert the reviewer
+    alert("Task approved! The associate has been notified and can now send to client.");
+
+    // Optional: Create a new notification for the associate
+    // (We'll implement this properly in Apps Script)
+  } catch (err) {
+    console.error("Approve failed:", err);
+    alert("Approval failed: " + err.message);
+  }
+};
+    
+  /* ===============================
+     Comment Handler
+     =============================== */
+  window.handleComment = async (notificationId, taskId) => {
+    if (!auth.currentUser) return alert("Please sign in first");
+
+    const comment = prompt("Enter your comment:");
+    if (!comment) return;
+
+    try {
+      await updateDoc(doc(db, "notifications", notificationId), {
+        comments: arrayUnion({
+          uid: auth.currentUser.uid,
+          name: auth.currentUser.displayName || "Anonymous",
+          comment,
+          timestamp: serverTimestamp()
+        })
+      });
+
+      // Optional: Notify backend
+      await fetch(`${SCRIPT_URL}?action=addComment&taskId=${encodeURIComponent(taskId)}&comment=${encodeURIComponent(comment)}`);
+
+      alert("Comment added.");
+    } catch (err) {
+      console.error("Comment failed:", err);
+      alert("Failed to add comment: " + err.message);
+    }
+  };
+</script>
+    
 </body>
 </html>
