@@ -1,9 +1,10 @@
-// firebase-messaging-sw.js
-importScripts('https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js');
-importScripts('https://www.gstatic.com/firebasejs/12.8.0/firebase-messaging.js');
+// firebase-messaging-sw.js - Classic script style (no modules)
 
-// Your Firebase config (same as in your main script)
-const firebaseConfig = {
+self.importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
+self.importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+
+// Use compat version to avoid module evaluation problems
+firebase.initializeApp({
   apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
   authDomain: "gpms-notifications.firebaseapp.com",
   projectId: "gpms-notifications",
@@ -11,20 +12,18 @@ const firebaseConfig = {
   messagingSenderId: "240580625031",
   appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
   measurementId: "G-D41F7DQVLP"
-};
-
-firebase.initializeApp(firebaseConfig);
+});
 
 const messaging = firebase.messaging();
 
-// Handle background messages (when app is closed or in background)
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+// Background message handler
+messaging.onBackgroundMessage(function(payload) {
+  console.log('[firebase-messaging-sw.js] Received background message: ', payload);
 
   const notificationTitle = payload.notification?.title || 'GPMS Notification';
   const notificationOptions = {
-    body: payload.notification?.body || 'You have a new notification',
-    icon: '/Picture1.png',  // Your logo
+    body: payload.notification?.body || 'You have a new notification in GPMS.',
+    icon: '/gpms/Picture1.png',  // Adjust path to match your subfolder
     data: {
       taskId: payload.data?.taskId,
       notificationId: payload.data?.notificationId
@@ -35,22 +34,25 @@ messaging.onBackgroundMessage((payload) => {
     ]
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle notification clicks (when user clicks the push notification)
-self.addEventListener('notificationclick', (event) => {
+// Notification click handler
+self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
   const action = event.action;
-  const { taskId, notificationId } = event.notification.data || {};
+  const data = event.notification.data || {};
+
+  let url = '/gpms/';  // Base path for your app
 
   if (action === 'approve') {
-    // Open your GPMS app with a deep link or handle approval
-    clients.openWindow(`/?action=approve&taskId=${taskId}&notificationId=${notificationId}`);
+    url += `?action=approve&taskId=${encodeURIComponent(data.taskId || '')}&notificationId=${encodeURIComponent(data.notificationId || '')}`;
   } else if (action === 'comment') {
-    clients.openWindow(`/?action=comment&taskId=${taskId}&notificationId=${notificationId}`);
-  } else {
-    clients.openWindow('/');
+    url += `?action=comment&taskId=${encodeURIComponent(data.taskId || '')}&notificationId=${encodeURIComponent(data.notificationId || '')}`;
   }
+
+  event.waitUntil(
+    clients.openWindow(url)
+  );
 });
