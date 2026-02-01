@@ -701,7 +701,7 @@
         const SUPABASE_URL = 'https://sudsanzsdppdjcsvsukf.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo';
         const ONESIGNAL_APP_ID = '179a1072-ca8a-4e68-8d61-d3419d7d5138';
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzI01RvojiljQqRfjaDyi9j1niWsWfJQcrkB2qi7hHzbgh6taFC2yaeNR1_joaeJrX_/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1kUvyV7nYLRpNwThKBA3qCcR6lfQSXlqZqDo54oItBqkllKKT7Qlk5lJ6NvE5_MnS/exec';
         
         // ========== GLOBAL VARIABLES ==========
         let supabaseClient = null;
@@ -1653,48 +1653,51 @@ const response = await fetch(SCRIPT_URL, {
   mode: 'cors'
 });
         
-        if (!response.ok) {
-            throw new Error(`Server responded with ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.status === 'success') {
-            // Format success message
-            let successMessage = result.message || '✓ Success!';
-            if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
-                successMessage = '✓ ' + successMessage;
-            }
-            
-            successBanner.className = 'banner success';
-            successBanner.textContent = successMessage;
-            successBanner.style.display = 'block';
-            
-            // Clear form
-            form.reset();
-            
-            // Clear draft for new form
-            if (formId === 'new-form') {
-                localStorage.removeItem('newOpportunityDraft');
-                document.getElementById('draft-notice').style.display = 'none';
-            }
-            
-            // Reload tasks for update form
-            if (formId === 'update-form') {
-                await loadTasks();
-            }
-            
-            // Auto-refresh tasks after a delay
-            setTimeout(() => {
-                loadTasks();
-            }, 1500);
-            
-            setTimeout(() => {
-                successBanner.style.display = 'none';
-            }, 6000);
-        } else {
-               throw new Error((result && result.message) || 'Submission failed: No response from server');
-        }
+        // In handleSubmit, replace the if/else block with:
+
+if (response.ok) {
+  const result = await response.json();
+
+  // Flexible success check
+  const isSuccess = 
+    result?.status === 'success' || 
+    result?.message?.includes('successfully') || 
+    result?.taskId || 
+    result?.updatedStatus;
+
+  if (isSuccess) {
+    let successMessage = result.message || '✓ Operation completed successfully!';
+    
+    // Clean up message for display
+    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+      successMessage = '✓ ' + successMessage;
+    }
+
+    successBanner.className = 'banner success';
+    successBanner.textContent = successMessage;
+    successBanner.style.display = 'block';
+
+    // Clear form, reload tasks, etc.
+    form.reset();
+    if (formId === 'new-form') {
+      localStorage.removeItem('newOpportunityDraft');
+      document.getElementById('draft-notice').style.display = 'none';
+    }
+    if (formId === 'update-form') {
+      await loadTasks();
+    }
+
+    setTimeout(() => successBanner.style.display = 'none', 6000);
+  } else {
+    // Only show real errors
+    const errMsg = result?.message || 'Submission failed - check console/server logs';
+    errorBanner.textContent = `✗ ${errMsg}`;
+    errorBanner.style.display = 'block';
+    console.error('Server returned non-success:', result);
+  }
+} else {
+  throw new Error(`Server HTTP error: ${response.status}`);
+}
         
     } catch (error) {
         errorBanner.className = 'banner error';
