@@ -1644,21 +1644,11 @@ if (formId === 'update-form') {
   }
 }
 
-// ========== ADD DEBUGGING CODE HERE ==========
-    console.log('=== DEBUG: Form Data Being Sent ===');
-    console.log('Form ID:', formId);
-    console.log('URL Params string:', urlParams.toString());
-    console.log('Has nairaEstimateDisplay?', urlParams.has('nairaEstimateDisplay'));
-    console.log('Has nairaEstimate?', urlParams.has('nairaEstimate'));
-    console.log('nairaEstimate value:', urlParams.get('nairaEstimate'));
-    console.log('All parameters being sent:');
-    for (let [key, value] of urlParams.entries()) {
-        console.log(`  ${key}: ${value}`);
-    }
-    // ========== END DEBUGGING CODE ==========
-        
 const response = await fetch(SCRIPT_URL, {
   method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded'  // ← ADD THIS HEADER
+  },
   body: urlParams.toString(),  // ← URL-encoded string, not FormData
   mode: 'cors'
 });
@@ -1896,116 +1886,107 @@ const response = await fetch(SCRIPT_URL, {
         }
         
         async function submitCloseTask() {
-    const taskSelect = document.getElementById('taskId');
-    const finalStatus = document.getElementById('finalStatus')?.value;
-    
-    if (!taskSelect?.value) {
-        showError('taskId', 'Please select a task first');
-        taskSelect?.focus();
-        return;
-    }
-    
-    if (!finalStatus) {
-        showError('finalStatus', 'Please select an outcome (Won/Lost/No Response)');
-        document.getElementById('finalStatus')?.focus();
-        return;
-    }
-    
-    // Validate won/lost fields
-    if (finalStatus === 'won') {
-        const actualValue = document.getElementById('actualValue')?.value;
-        if (!actualValue || Number(actualValue) <= 0) {
-            showError('actualValue', 'Please enter a valid actual value for Won tasks');
-            return;
-        }
-    }
-    
-    if (finalStatus === 'lost') {
-        const lossReason = document.getElementById('lossReason')?.value;
-        if (!lossReason) {
-            showError('lossReason', 'Please select a loss reason');
-            return;
-        }
-    }
-    
-    // Prepare URL-encoded data (NOT FormData)
-    const urlParams = new URLSearchParams();
-    urlParams.append('formType', 'closeTask');
-    urlParams.append('taskId', taskSelect.value);
-    urlParams.append('finalStatus', finalStatus);
-    
-    if (finalStatus === 'won') {
-        urlParams.append('actualValue', document.getElementById('actualValue').value);
-    }
-    
-    if (finalStatus === 'lost') {
-        urlParams.append('lossReason', document.getElementById('lossReason').value);
-    }
-    
-    // Add user data if logged in
-    if (currentUser) {
-        urlParams.append('userId', currentUser.id);
-        urlParams.append('userEmail', currentUser.email);
-    }
-    
-    // Submit
-    const loading = document.getElementById('loading');
-    const successBanner = document.getElementById('success-banner');
-    const errorBanner = document.getElementById('error-banner');
-    
-    loading.style.display = 'block';
-    successBanner.style.display = 'none';
-    errorBanner.style.display = 'none';
-    
-    try {
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: urlParams.toString(),
-            mode: 'cors'
-        });
-        
-        const result = await response.json();
-        
-        if (result.status === 'success') {
-            // Format the message to ensure it has a checkmark
-            let successMessage = result.message;
-            if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
-                successMessage = '✓ ' + successMessage;
+            const taskSelect = document.getElementById('taskId');
+            const finalStatus = document.getElementById('finalStatus')?.value;
+            
+            if (!taskSelect?.value) {
+                showError('taskId', 'Please select a task first');
+                taskSelect?.focus();
+                return;
             }
             
-            successBanner.className = 'banner success';
-            successBanner.textContent = successMessage;
-            successBanner.style.display = 'block';
+            if (!finalStatus) {
+                showError('finalStatus', 'Please select an outcome (Won/Lost/No Response)');
+                document.getElementById('finalStatus')?.focus();
+                return;
+            }
             
-            // Reload tasks and reset form
-            await loadTasks();
-            document.getElementById('finalStatus').value = '';
-            document.getElementById('actualValue').value = '';
-            document.getElementById('lossReason').value = '';
-            document.getElementById('close-won-fields').style.display = 'none';
-            document.getElementById('close-lost-fields').style.display = 'none';
+            // Validate won/lost fields
+            if (finalStatus === 'won') {
+                const actualValue = document.getElementById('actualValue')?.value;
+                if (!actualValue || Number(actualValue) <= 0) {
+                    showError('actualValue', 'Please enter a valid actual value for Won tasks');
+                    return;
+                }
+            }
             
-            // Hide partner section after successful close
-            document.getElementById('partner-section').style.display = 'none';
+            if (finalStatus === 'lost') {
+                const lossReason = document.getElementById('lossReason')?.value;
+                if (!lossReason) {
+                    showError('lossReason', 'Please select a loss reason');
+                    return;
+                }
+            }
             
-            setTimeout(() => {
-                successBanner.style.display = 'none';
-            }, 6000);
-        } else {
-            throw new Error(result.message || 'Failed to close task');
+            // Prepare data
+            const formData = new FormData();
+            formData.append('formType', 'closeTask');
+            formData.append('taskId', taskSelect.value);
+            formData.append('finalStatus', finalStatus);
+            
+            if (finalStatus === 'won') {
+                formData.append('actualValue', document.getElementById('actualValue').value);
+            }
+            
+            if (finalStatus === 'lost') {
+                formData.append('lossReason', document.getElementById('lossReason').value);
+            }
+            
+            // Submit
+            const loading = document.getElementById('loading');
+            const successBanner = document.getElementById('success-banner');
+            const errorBanner = document.getElementById('error-banner');
+            
+            loading.style.display = 'block';
+            successBanner.style.display = 'none';
+            errorBanner.style.display = 'none';
+            
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'cors'
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // Format the message to ensure it has a checkmark
+                    let successMessage = result.message;
+                    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+                        successMessage = '✓ ' + successMessage;
+                    }
+                    
+                    successBanner.className = 'banner success';
+                    successBanner.textContent = successMessage;
+                    successBanner.style.display = 'block';
+                    
+                    // Reload tasks and reset form
+                    await loadTasks();
+                    document.getElementById('finalStatus').value = '';
+                    document.getElementById('actualValue').value = '';
+                    document.getElementById('lossReason').value = '';
+                    document.getElementById('close-won-fields').style.display = 'none';
+                    document.getElementById('close-lost-fields').style.display = 'none';
+                    
+                    // Hide partner section after successful close
+                    document.getElementById('partner-section').style.display = 'none';
+                    
+                    setTimeout(() => {
+                        successBanner.style.display = 'none';
+                    }, 6000);
+                } else {
+                    throw new Error(result.message || 'Failed to close task');
+                }
+            } catch (error) {
+                console.error('Full error:', error);
+                errorBanner.className = 'banner error';
+                errorBanner.textContent = `✗ ${error.message}`;
+                errorBanner.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+            }
         }
-    } catch (error) {
-        console.error('Full error:', error);
-        errorBanner.className = 'banner error';
-        errorBanner.textContent = `✗ ${error.message}`;
-        errorBanner.style.display = 'block';
-    } finally {
-        loading.style.display = 'none';
-    }
-}
         
         // ========== NAIRA ESTIMATE FORMATTING ==========
         function initNairaFormatting() {
