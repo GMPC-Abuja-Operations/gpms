@@ -253,24 +253,64 @@
                  class="logo">
             <h1>GPMS</h1>
             <p style="margin: 8px 0 0; font-size: 1.25rem; font-weight: 500; opacity: 0.95; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">Goldenmuv Proposal Management System</p>
-        <!-- Place this inside your <header> element, preferably right after the <h1> or logo -->
-<button id="sign-in-btn"
-        style="position: absolute; top: 20px; right: 30px; padding: 10px 14px;
-               background: #2563eb; color: white; border: none; border-radius: 6px;
-               font-weight: 500; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
-  Sign in with Google
-</button>
-
-<div id="user-info"
-     style="display: none; position: absolute; top: 20px; right: 30px;
-            color: white; font-weight: 500;">
-  Hello, <span id="user-name"></span>
-  <button id="sign-out-btn"
-          style="background: none; border: none; color: #93c5fd; margin-left: 12px;
-                 cursor: pointer; text-decoration: underline; font-weight: normal;">
-    Sign out
-  </button>
+        <!-- In your main HTML file -->
+<div id="login-section" style="position: absolute; top: 20px; right: 30px;">
+    <div id="login-form" style="display: none;">
+        <input type="email" id="login-email" placeholder="Email" 
+               style="padding: 8px; margin: 2px; width: 180px;">
+        <input type="password" id="login-password" placeholder="Password" 
+               style="padding: 8px; margin: 2px; width: 180px;">
+        <button onclick="signInWithEmail()" 
+                style="padding: 8px 12px; margin: 2px; background: #D4AF37; color: white; border: none; border-radius: 4px;">
+            Sign In
+        </button>
+    </div>
+    
+    <button id="show-login-btn" 
+            onclick="showLoginForm()"
+            style="padding: 10px 14px; background: #2563eb; color: white; border: none; border-radius: 6px;">
+        Sign In
+    </button>
+    
+    <div id="user-info" style="display: none;">
+        Hello, <span id="user-name"></span>
+        <button onclick="signOut()" style="background: none; border: none; color: #93c5fd; margin-left: 12px;">
+            Sign out
+        </button>
+    </div>
 </div>
+
+<script>
+// Login functions
+function showLoginForm() {
+    document.getElementById('show-login-btn').style.display = 'none';
+    document.getElementById('login-form').style.display = 'block';
+}
+
+async function signInWithEmail() {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) throw error;
+        
+        // Hide login form
+        document.getElementById('login-form').style.display = 'none';
+        
+    } catch (error) {
+        alert('Sign in failed: ' + error.message);
+    }
+}
+
+async function signOut() {
+    await supabase.auth.signOut();
+}
+</script>
         </header>
 
         <div id="notification-bell"
