@@ -1572,122 +1572,130 @@
         }
         
         // ========== FORM SUBMISSION ==========
-        async function handleSubmit(formId, e) {
-            e.preventDefault();
-            
-            // Check if user is authenticated
-            if (!currentUser) {
-                alert('Please sign in to submit forms.');
-                showLoginForm();
-                return;
+        async function handleSubmit(formId, event) {
+    // SAFE: Handle missing event parameter
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    } else if (event === undefined) {
+        console.warn('Event parameter was undefined, continuing anyway');
+    } else {
+        console.error('Invalid event parameter:', event);
+        return;
+    }
+    
+    // Check if user is authenticated
+    if (!currentUser) {
+        alert('Please sign in to submit forms.');
+        showLoginForm();
+        return;
+    }
+    
+    // Validate form
+    if (!validateForm(formId)) {
+        return;
+    }
+    
+    const form = document.getElementById(formId);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const loading = document.getElementById('loading');
+    const successBanner = document.getElementById('success-banner');
+    const errorBanner = document.getElementById('error-banner');
+    
+    // Reset classes
+    successBanner.className = 'banner success';
+    errorBanner.className = 'banner error';
+    
+    successBanner.style.display = 'none';
+    errorBanner.style.display = 'none';
+    loading.style.display = 'block';
+    submitBtn.disabled = true;
+    
+    try {
+        const formData = new FormData(form);
+        
+        // Add user ID to form data
+        if (currentUser) {
+            formData.append('userId', currentUser.id);
+            formData.append('userEmail', currentUser.email);
+        }
+        
+        // Handle additional reviewers for update form
+        if (formId === 'update-form') {
+            const additionalReviewersSelect = document.getElementById('additionalReviewers');
+            if (additionalReviewersSelect) {
+                const selectedValues = Array.from(
+                    additionalReviewersSelect.selectedOptions
+                ).map(opt => opt.value);
+                
+                const additionalReviewers = selectedValues.join(',');
+                formData.set('additionalReviewers', additionalReviewers);
             }
             
-            // Validate form
-            if (!validateForm(formId)) {
-                return;
-            }
-            
-            const form = document.getElementById(formId);
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const loading = document.getElementById('loading');
-            const successBanner = document.getElementById('success-banner');
-            const errorBanner = document.getElementById('error-banner');
-            
-            // Reset classes
-            successBanner.className = 'banner success';
-            errorBanner.className = 'banner error';
-            
-            successBanner.style.display = 'none';
-            errorBanner.style.display = 'none';
-            loading.style.display = 'block';
-            submitBtn.disabled = true;
-            
-            try {
-                const formData = new FormData(form);
-                
-                // Add user ID to form data
-                if (currentUser) {
-                    formData.append('userId', currentUser.id);
-                    formData.append('userEmail', currentUser.email);
-                }
-                
-                // Handle additional reviewers for update form
-                if (formId === 'update-form') {
-                    const additionalReviewersSelect = document.getElementById('additionalReviewers');
-                    if (additionalReviewersSelect) {
-                        const selectedValues = Array.from(
-                            additionalReviewersSelect.selectedOptions
-                        ).map(opt => opt.value);
-                        
-                        const additionalReviewers = selectedValues.join(',');
-                        formData.set('additionalReviewers', additionalReviewers);
-                    }
-                    
-                    const statusValue = document.getElementById('status')?.value;
-                    if (statusValue === 'ready_for_review' && !formData.has('additionalReviewers')) {
-                        formData.set('additionalReviewers', '');
-                    }
-                }
-                
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: formData,
-                    mode: 'cors'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Server responded with ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    // Format success message
-                    let successMessage = result.message || '✓ Success!';
-                    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
-                        successMessage = '✓ ' + successMessage;
-                    }
-                    
-                    successBanner.className = 'banner success';
-                    successBanner.textContent = successMessage;
-                    successBanner.style.display = 'block';
-                    
-                    // Clear form
-                    form.reset();
-                    
-                    // Clear draft for new form
-                    if (formId === 'new-form') {
-                        localStorage.removeItem('newOpportunityDraft');
-                        document.getElementById('draft-notice').style.display = 'none';
-                    }
-                    
-                    // Reload tasks for update form
-                    if (formId === 'update-form') {
-                        await loadTasks();
-                    }
-                    
-                    // Auto-refresh tasks after a delay
-                    setTimeout(() => {
-                        loadTasks();
-                    }, 1500);
-                    
-                    setTimeout(() => {
-                        successBanner.style.display = 'none';
-                    }, 6000);
-                } else {
-                    throw new Error(result.message || 'Submission failed');
-                }
-                
-            } catch (error) {
-                errorBanner.className = 'banner error';
-                errorBanner.textContent = `✗ ${error.message}`;
-                errorBanner.style.display = 'block';
-                console.error('Submission error:', error);
-            } finally {
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
+            const statusValue = document.getElementById('status')?.value;
+            if (statusValue === 'ready_for_review' && !formData.has('additionalReviewers')) {
+                formData.set('additionalReviewers', '');
             }
         }
+        
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: formData,
+            mode: 'cors'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Format success message
+            let successMessage = result.message || '✓ Success!';
+            if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+                successMessage = '✓ ' + successMessage;
+            }
+            
+            successBanner.className = 'banner success';
+            successBanner.textContent = successMessage;
+            successBanner.style.display = 'block';
+            
+            // Clear form
+            form.reset();
+            
+            // Clear draft for new form
+            if (formId === 'new-form') {
+                localStorage.removeItem('newOpportunityDraft');
+                document.getElementById('draft-notice').style.display = 'none';
+            }
+            
+            // Reload tasks for update form
+            if (formId === 'update-form') {
+                await loadTasks();
+            }
+            
+            // Auto-refresh tasks after a delay
+            setTimeout(() => {
+                loadTasks();
+            }, 1500);
+            
+            setTimeout(() => {
+                successBanner.style.display = 'none';
+            }, 6000);
+        } else {
+            throw new Error(result.message || 'Submission failed');
+        }
+        
+    } catch (error) {
+        errorBanner.className = 'banner error';
+        errorBanner.textContent = `✗ ${error.message}`;
+        errorBanner.style.display = 'block';
+        console.error('Submission error:', error);
+    } finally {
+        loading.style.display = 'none';
+        submitBtn.disabled = false;
+    }
+}
         
         // ========== TASK LOADING ==========
         async function loadTasks() {
