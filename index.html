@@ -446,6 +446,23 @@
                         <span class="error-message" id="status-error">Please select a status</span>
                     </div>
 
+                    <div style="margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 8px; border: 1px solid #ddd;">
+  <label for="additionalReviewers" style="font-weight: 600; display: block; margin-bottom: 8px;">
+    Additional Reviewers (optional – they can view & comment):
+  </label>
+  <select id="additionalReviewers" name="additionalReviewers" multiple size="5"
+          style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; border-radius: 6px; height: 140px; font-size: 0.95rem;">
+    <option value="staff1">Mr. Immanuelson Sam</option>
+    <option value="staff2">Ms. Joan Alaribe</option>
+    <option value="staff3">Mr. Emmanuel Agama</option>
+    <option value="staff4">Mr. Matthew Nnaji</option>
+    <option value="staff5">Mr. Peter Esiole</option>
+  </select>
+  <small style="color: #6B5A5A; display: block; margin-top: 6px;">
+    Hold Ctrl (Windows) or Cmd (Mac) to select multiple. These team members will be notified to review the submission.
+  </small>
+</div>
+
                     <hr>
 
                     <h3>📎 Upload Documents</h3>
@@ -674,6 +691,23 @@ async function handleSubmit(formId, e) {
 
     try {
         const formData = new FormData(form);
+
+        if (formId === 'update-form') {
+    const additionalReviewersSelect = document.getElementById('additionalReviewers');
+    if (additionalReviewersSelect) {
+        const selectedValues = Array.from(
+            additionalReviewersSelect.selectedOptions
+        ).map(opt => opt.value);
+
+        const additionalReviewers = selectedValues.join(',');
+        formData.set('additionalReviewers', additionalReviewers);
+    }
+
+    const statusValue = document.getElementById('status')?.value;
+    if (statusValue === 'ready_for_review' && !formData.has('additionalReviewers')) {
+        formData.set('additionalReviewers', '');
+    }
+}
 
         const response = await fetch(SCRIPT_URL, {
             method: 'POST',
@@ -1302,60 +1336,90 @@ async function handleSubmit(formId, e) {
   }
 }
 
-  /* ===============================
-     Approve Handler (sends userUid for backend check)
-     =============================== */
+// Approve – using JSON payload
 window.handleApprove = async (notificationId, taskId) => {
-  if (!auth.currentUser) return alert("Please sign in first");
+  if (!auth.currentUser) {
+    return alert("Please sign in first to approve.");
+  }
 
   try {
-    // Step 1: Mark notification as approved in Firestore
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action: "approveTask",
+        notificationId: notificationId,
+        taskId: taskId,
+        userUid: auth.currentUser.uid
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || "Server error during approval");
+    }
+
+    // Update local Firestore notification
     await updateDoc(doc(db, "notifications", notificationId), {
       status: "approved",
       approvedBy: auth.currentUser.uid,
       approvedAt: serverTimestamp()
     });
 
-    // Step 2: Notify the associate (we'll add this in Apps Script later)
-    // For now, just alert the reviewer
     alert("Task approved! The associate has been notified and can now send to client.");
-
-    // Optional: Create a new notification for the associate
-    // (We'll implement this properly in Apps Script)
   } catch (err) {
     console.error("Approve failed:", err);
     alert("Approval failed: " + err.message);
   }
 };
-    
-  /* ===============================
-     Comment Handler
-     =============================== */
-  window.handleComment = async (notificationId, taskId) => {
-    if (!auth.currentUser) return alert("Please sign in first");
 
-    const comment = prompt("Enter your comment:");
-    if (!comment) return;
+// Comment – using JSON payload
+window.handleComment = async (notificationId, taskId) => {
+  if (!auth.currentUser) {
+    return alert("Please sign in first to comment.");
+  }
 
-    try {
-      await updateDoc(doc(db, "notifications", notificationId), {
-        comments: arrayUnion({
-          uid: auth.currentUser.uid,
-          name: auth.currentUser.displayName || "Anonymous",
-          comment,
-          timestamp: serverTimestamp()
-        })
-      });
+  const comment = prompt("Enter your comment:");
+  if (!comment) return;
 
-      // Optional: Notify backend
-      await fetch(`${SCRIPT_URL}?action=addComment&taskId=${encodeURIComponent(taskId)}&comment=${encodeURIComponent(comment)}`);
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action: "addComment",
+        notificationId: notificationId,
+        taskId: taskId,
+        comment: comment,
+        userUid: auth.currentUser.uid
+      })
+    });
 
-      alert("Comment added.");
-    } catch (err) {
-      console.error("Comment failed:", err);
-      alert("Failed to add comment: " + err.message);
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || "Server error during comment");
     }
-  };
+
+    // Update local Firestore
+    await updateDoc(doc(db, "notifications", notificationId), {
+      comments: arrayUnion({
+        uid: auth.currentUser.uid,
+        name: auth.currentUser.displayName || "Anonymous",
+        comment: comment,
+        timestamp: serverTimestamp()
+      })
+    });
+
+    alert("Comment added successfully.");
+  } catch (err) {
+    console.error("Comment failed:", err);
+    alert("Failed to add comment: " + err.message);
+  }
+};
 </script>
     
 </body>
