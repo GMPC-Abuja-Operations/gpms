@@ -7,7 +7,15 @@
     <link rel="icon" href="Picture1.png" type="image/png">
     <link rel="shortcut icon" href="Picture1.png" type="image/png">
     <link rel="apple-touch-icon" href="Picture1.png">
+    
+    <!-- OneSignal SDK -->
+    <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async></script>
+    
+    <!-- Supabase SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
     <style>
+        /* ========== ALL YOUR EXISTING STYLES ========== */
         :root {
             --primary: #D4AF37;
             --primary-dark: #B8972E;
@@ -174,7 +182,6 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* New Styles for Improvements */
         .error-field {
             border-color: #dc3545 !important;
             box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25) !important;
@@ -242,99 +249,208 @@
             padding-bottom: 10px;
             margin-top: 30px;
         }
+        
+        /* ========== NEW AUTH STYLES ========== */
+        .auth-container {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            text-align: right;
+        }
+        
+        .auth-form {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 250px;
+            margin-top: 10px;
+        }
+        
+        .auth-input {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .auth-button {
+            padding: 10px 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 5px;
+        }
+        
+        .auth-button:hover {
+            background: var(--primary-dark);
+        }
+        
+        .auth-secondary-button {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+        
+        .auth-secondary-button:hover {
+            background: rgba(212, 175, 55, 0.1);
+        }
+        
+        .auth-link {
+            color: var(--primary);
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .auth-error {
+            color: #dc3545;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            text-align: center;
+        }
+        
+        .user-welcome {
+            color: white;
+            font-weight: 500;
+        }
+        
+        #notification-bell {
+            position: absolute;
+            top: 60px;
+            right: 30px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        
+        #notification-count {
+            display: none;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 0.75rem;
+            position: absolute;
+            top: -8px;
+            right: -8px;
+        }
+        
+        #notification-panel {
+            display: none;
+            position: absolute;
+            top: 95px;
+            right: 30px;
+            width: 340px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 420px;
+            overflow-y: auto;
+            z-index: 999;
+        }
+        
+        .notification-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        
+        .notification-item:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <!-- Logo -->
-            <img src="Picture1.png" 
-                 alt="Goldenmuv Logo" 
-                 class="logo">
+            <img src="Picture1.png" alt="Goldenmuv Logo" class="logo">
             <h1>GPMS</h1>
-            <p style="margin: 8px 0 0; font-size: 1.25rem; font-weight: 500; opacity: 0.95; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">Goldenmuv Proposal Management System</p>
-        <!-- In your main HTML file -->
-<div id="login-section" style="position: absolute; top: 20px; right: 30px;">
-    <div id="login-form" style="display: none;">
-        <input type="email" id="login-email" placeholder="Email" 
-               style="padding: 8px; margin: 2px; width: 180px;">
-        <input type="password" id="login-password" placeholder="Password" 
-               style="padding: 8px; margin: 2px; width: 180px;">
-        <button onclick="signInWithEmail()" 
-                style="padding: 8px 12px; margin: 2px; background: #D4AF37; color: white; border: none; border-radius: 4px;">
-            Sign In
-        </button>
-    </div>
-    
-    <button id="show-login-btn" 
-            onclick="showLoginForm()"
-            style="padding: 10px 14px; background: #2563eb; color: white; border: none; border-radius: 6px;">
-        Sign In
-    </button>
-    
-    <div id="user-info" style="display: none;">
-        Hello, <span id="user-name"></span>
-        <button onclick="signOut()" style="background: none; border: none; color: #93c5fd; margin-left: 12px;">
-            Sign out
-        </button>
-    </div>
-</div>
-
-<script>
-// Login functions
-function showLoginForm() {
-    document.getElementById('show-login-btn').style.display = 'none';
-    document.getElementById('login-form').style.display = 'block';
-}
-
-async function signInWithEmail() {
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    
-    try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
-        
-        if (error) throw error;
-        
-        // Hide login form
-        document.getElementById('login-form').style.display = 'none';
-        
-    } catch (error) {
-        alert('Sign in failed: ' + error.message);
-    }
-}
-
-async function signOut() {
-    await supabase.auth.signOut();
-}
-</script>
+            <p style="margin: 8px 0 0; font-size: 1.25rem; font-weight: 500; opacity: 0.95;">
+                Goldenmuv Proposal Management System
+            </p>
+            
+            <!-- ========== AUTHENTICATION SECTION ========== -->
+            <div class="auth-container">
+                <!-- Login Button (shown when not logged in) -->
+                <button id="show-login-btn" class="auth-button" 
+                        style="background: #2563eb; display: block;">
+                    Sign In
+                </button>
+                
+                <!-- Login Form (hidden by default) -->
+                <div id="login-form" class="auth-form" style="display: none;">
+                    <h3 style="margin-top: 0; color: var(--dark);">Sign In</h3>
+                    <input type="email" id="login-email" class="auth-input" 
+                           placeholder="Your email" required>
+                    <input type="password" id="login-password" class="auth-input" 
+                           placeholder="Password" required>
+                    <button onclick="signInWithEmail()" class="auth-button">
+                        Sign In
+                    </button>
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span class="auth-link" onclick="showPasswordReset()">
+                            Forgot password?
+                        </span>
+                    </div>
+                    <div id="login-error" class="auth-error" style="display: none;"></div>
+                </div>
+                
+                <!-- Password Reset Form (hidden by default) -->
+                <div id="reset-form" class="auth-form" style="display: none;">
+                    <h3 style="margin-top: 0; color: var(--dark);">Reset Password</h3>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">
+                        Enter your email to receive a password reset link
+                    </p>
+                    <input type="email" id="reset-email" class="auth-input" 
+                           placeholder="Your email" required>
+                    <button onclick="resetPassword()" class="auth-button">
+                        Send Reset Link
+                    </button>
+                    <button onclick="showLoginForm()" class="auth-button auth-secondary-button">
+                        Back to Login
+                    </button>
+                    <div id="reset-message" style="display: none; color: #28a745; 
+                         text-align: center; margin-top: 10px; font-size: 0.9rem;">
+                        ✓ Reset link sent! Check your email.
+                    </div>
+                </div>
+                
+                <!-- User Info (shown when logged in) -->
+                <div id="user-info" style="display: none;">
+                    <span class="user-welcome">
+                        Hello, <span id="user-name"></span>
+                    </span>
+                    <button onclick="signOut()" 
+                            style="background: none; border: none; color: #93c5fd; 
+                                   margin-left: 12px; cursor: pointer; text-decoration: underline;">
+                        Sign out
+                    </button>
+                </div>
+            </div>
+            
+            <!-- ========== NOTIFICATION BELL ========== -->
+            <div id="notification-bell">
+                🔔 
+                <span id="notification-count">0</span>
+            </div>
+            
+            <div id="notification-panel">
+                <h3 style="margin-top: 0; color: var(--dark);">Notifications</h3>
+                <div id="notification-list">
+                    <p style="color: #666; text-align: center;">No notifications</p>
+                </div>
+            </div>
         </header>
-
-        <div id="notification-bell"
-     style="position:absolute; top:60px; right:30px;
-            font-size:1.5rem; cursor:pointer; z-index: 1000;">
-  🔔 
-  <span id="notification-count"
-        style="display:none; background:red; color:white;
-               border-radius:50%; padding:2px 6px; font-size:0.75rem;
-               position: absolute; top: -8px; right: -8px;">
-    0
-  </span>
-</div>
-
-<div id="notification-panel"
-     style="display:none; position:absolute; top:95px; right:30px;
-            width:340px; background:white; border:1px solid #ddd;
-            border-radius:8px; padding:15px;
-            box-shadow:0 4px 12px rgba(0,0,0,0.15);
-            max-height:420px; overflow-y:auto; z-index: 999;">
-  <h3 style="margin-top:0; color: #333;">Notifications</h3>
-  <div id="notification-list" style="font-size: 0.95rem;"></div>
-</div>
         
+        <!-- ========== TAB NAVIGATION ========== -->
         <div class="tabs">
             <button class="tab-btn active" onclick="showTab('new')" id="tab-new">
                 📋 New Opportunity (Partners) <span class="keyboard-hint">Ctrl+1</span>
@@ -343,17 +459,25 @@ async function signOut() {
                 🔄 Update Task (Associates) <span class="keyboard-hint">Ctrl+2</span>
             </button>
         </div>
+        
+        <!-- ========== TAB CONTENT ========== -->
         <div class="tab-content">
             <!-- New Opportunity Form -->
             <div id="new-tab" class="tab-panel active">
                 <div id="draft-notice" class="draft-notice" style="display: none;">
-                    📝 Draft restored. <button onclick="clearDraft()" style="background: none; border: none; color: var(--primary); text-decoration: underline; cursor: pointer; margin-left: 10px;">Clear draft</button>
+                    📝 Draft restored. 
+                    <button onclick="clearDraft()" style="background: none; border: none; 
+                            color: var(--primary); text-decoration: underline; cursor: pointer; 
+                            margin-left: 10px;">
+                        Clear draft
+                    </button>
                 </div>
                 <form id="new-form">
                     <input type="hidden" name="formType" value="newOpportunity">
                     <div>
                         <label for="clientName">Client Name:*</label>
-                        <input type="text" id="clientName" name="clientName" required placeholder="e.g., ABC Corp">
+                        <input type="text" id="clientName" name="clientName" required 
+                               placeholder="e.g., ABC Corp">
                         <span class="error-message" id="clientName-error">Client name is required</span>
                     </div>
                     <div>
@@ -370,12 +494,14 @@ async function signOut() {
                     </div>
                     <div>
                         <label for="description">Description:*</label>
-                        <textarea id="description" name="description" required rows="4" placeholder="Brief overview of the opportunity..."></textarea>
+                        <textarea id="description" name="description" required rows="4" 
+                                  placeholder="Brief overview of the opportunity..."></textarea>
                         <span class="error-message" id="description-error">Description is required</span>
                     </div>
                     <div>
                         <label for="nairaEstimateDisplay">₦ Estimate:*</label>
-                        <input type="text" id="nairaEstimateDisplay" required placeholder="e.g., 5,000,000">
+                        <input type="text" id="nairaEstimateDisplay" required 
+                               placeholder="e.g., 5,000,000">
                         <input type="hidden" id="nairaEstimate" name="nairaEstimate">
                         <span class="error-message" id="nairaEstimate-error">Please enter a valid amount</span>
                     </div>
@@ -413,7 +539,7 @@ async function signOut() {
                 <form id="update-form">
                     <input type="hidden" name="formType" value="updateTask">
 
-                    <!-- Add this ABOVE the task select dropdown -->
+                    <!-- Partner Close Section Toggle -->
                     <button type="button" onclick="togglePartnerSection()" 
                             style="background: #F5F0E1; border: 1px solid #D4AF37; color: #4A2C2A; 
                                    padding: 10px 18px; border-radius: 6px; margin-bottom: 20px; 
@@ -422,11 +548,14 @@ async function signOut() {
                       <span>🔓</span> Close Task (Partner)
                     </button>
                     
+                    <!-- Task Search -->
                     <div style="margin-bottom: 10px;">
                         <input type="text" id="task-search" placeholder="🔍 Search tasks..." 
-                               style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; border-radius: 6px;">
+                               style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; 
+                                      border-radius: 6px;">
                     </div>
                     
+                    <!-- Task Selection -->
                     <div>
                         <label for="taskId">Select Task:*</label>
                         <select id="taskId" name="taskId" required>
@@ -435,19 +564,21 @@ async function signOut() {
                         <span class="error-message" id="taskId-error">Please select a task</span>
                     </div>
 
-                    <!-- ADD Partner Close Section (hidden by default) -->
-                    <div id="partner-section" style="margin: 30px 0; padding: 20px; background: #F5F0E1; border-radius: 8px; border: 1px dashed #D4AF37; display: none;">
+                    <!-- Partner Close Section -->
+                    <div id="partner-section" style="margin: 30px 0; padding: 20px; 
+                         background: #F5F0E1; border-radius: 8px; border: 1px dashed #D4AF37; 
+                         display: none;">
                       <h3 style="color: #4A2C2A; margin-top: 0; display: flex; align-items: center; gap: 8px;">
                         <span>🔒</span> Partner Actions
                       </h3>
                       
-                      <p style="color: #6B5A5A; margin-bottom: 15px;">
-                        <!-- Removed: "Close this task as Won, Lost, or No Response. This section is visible to all for transparency." -->
-                      </p>
-                      
                       <div style="background: white; padding: 20px; border-radius: 6px; border: 1px solid #D4AF37;">
-                        <label style="font-weight: 600; display: block; margin-bottom: 8px; color: #4A2C2A;">Final Outcome:*</label>
-                        <select id="finalStatus" name="finalStatus" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #4A2C2A; border-radius: 4px;" onchange="toggleCloseFields()">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px; 
+                               color: #4A2C2A;">Final Outcome:*</label>
+                        <select id="finalStatus" name="finalStatus" 
+                                style="width: 100%; padding: 10px; margin-bottom: 20px; 
+                                       border: 1px solid #4A2C2A; border-radius: 4px;" 
+                                onchange="toggleCloseFields()">
                           <option value="">Select outcome...</option>
                           <option value="won">🎉 Won</option>
                           <option value="lost">📉 Lost</option>
@@ -455,13 +586,19 @@ async function signOut() {
                         </select>
                         
                         <div id="close-won-fields" style="display: none; margin-bottom: 15px;">
-                          <label style="font-weight: 600; display: block; margin-bottom: 8px; color: #4A2C2A;">₦ Actual Value (if Won):*</label>
-                          <input type="number" id="actualValue" name="actualValue" min="0" step="1000" style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; border-radius: 4px;">
+                          <label style="font-weight: 600; display: block; margin-bottom: 8px; 
+                                 color: #4A2C2A;">₦ Actual Value (if Won):*</label>
+                          <input type="number" id="actualValue" name="actualValue" min="0" step="1000" 
+                                 style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; 
+                                        border-radius: 4px;">
                         </div>
                         
                         <div id="close-lost-fields" style="display: none; margin-bottom: 15px;">
-                          <label style="font-weight: 600; display: block; margin-bottom: 8px; color: #4A2C2A;">Loss Reason:*</label>
-                          <select id="lossReason" name="lossReason" style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; border-radius: 4px;">
+                          <label style="font-weight: 600; display: block; margin-bottom: 8px; 
+                                 color: #4A2C2A;">Loss Reason:*</label>
+                          <select id="lossReason" name="lossReason" 
+                                  style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; 
+                                         border-radius: 4px;">
                             <option value="">Select reason...</option>
                             <option value="price">Price</option>
                             <option value="competitor">Competitor</option>
@@ -470,12 +607,16 @@ async function signOut() {
                           </select>
                         </div>
                         
-                        <button type="button" onclick="submitCloseTask()" style="background: #D4AF37; color: #4A2C2A; border: 1px solid #B8972E; padding: 12px 24px; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                        <button type="button" onclick="submitCloseTask()" 
+                                style="background: #D4AF37; color: #4A2C2A; border: 1px solid #B8972E; 
+                                       padding: 12px 24px; border-radius: 6px; font-weight: 600; 
+                                       cursor: pointer;">
                           Confirm Close Task
                         </button>
                       </div>
                     </div>
                     
+                    <!-- Status Update -->
                     <div>
                         <label for="status">Status:*</label>
                         <select id="status" name="status" required>
@@ -486,25 +627,31 @@ async function signOut() {
                         <span class="error-message" id="status-error">Please select a status</span>
                     </div>
 
-                    <div style="margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 8px; border: 1px solid #ddd;">
-  <label for="additionalReviewers" style="font-weight: 600; display: block; margin-bottom: 8px;">
-    Additional Reviewers (optional – they can view & comment):
-  </label>
-  <select id="additionalReviewers" name="additionalReviewers" multiple size="5"
-          style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; border-radius: 6px; height: 140px; font-size: 0.95rem;">
-    <option value="staff1">Mr. Immanuelson Sam</option>
-    <option value="staff2">Ms. Joan Alaribe</option>
-    <option value="staff3">Mr. Emmanuel Agama</option>
-    <option value="staff4">Mr. Matthew Nnaji</option>
-    <option value="staff5">Mr. Peter Esiole</option>
-  </select>
-  <small style="color: #6B5A5A; display: block; margin-top: 6px;">
-    Hold Ctrl (Windows) or Cmd (Mac) to select multiple. These team members will be notified to review the submission.
-  </small>
-</div>
+                    <!-- Additional Reviewers -->
+                    <div style="margin: 20px 0; padding: 15px; background: #f9f9f9; 
+                         border-radius: 8px; border: 1px solid #ddd;">
+                      <label for="additionalReviewers" style="font-weight: 600; display: block; 
+                             margin-bottom: 8px;">
+                        Additional Reviewers (optional – they can view & comment):
+                      </label>
+                      <select id="additionalReviewers" name="additionalReviewers" multiple size="5"
+                              style="width: 100%; padding: 10px; border: 1px solid #4A2C2A; 
+                                     border-radius: 6px; height: 140px; font-size: 0.95rem;">
+                        <option value="staff1">Mr. Immanuelson Sam</option>
+                        <option value="staff2">Ms. Joan Alaribe</option>
+                        <option value="staff3">Mr. Emmanuel Agama</option>
+                        <option value="staff4">Mr. Matthew Nnaji</option>
+                        <option value="staff5">Mr. Peter Esiole</option>
+                      </select>
+                      <small style="color: #6B5A5A; display: block; margin-top: 6px;">
+                        Hold Ctrl (Windows) or Cmd (Mac) to select multiple. 
+                        These team members will be notified to review the submission.
+                      </small>
+                    </div>
 
                     <hr>
 
+                    <!-- Document Upload -->
                     <h3>📎 Upload Documents</h3>
                     <p style="font-size: 0.95rem; color: #6B5A5A; margin-bottom: 15px;">
                         Upload documents related to this task (proposals, contracts, approvals).
@@ -512,38 +659,109 @@ async function signOut() {
                     </p>
 
                     <button type="button" onclick="openGoogleFormDirect()" 
-                            style="background: #D4AF37; color: #4A2C2A; border: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                            style="background: #D4AF37; color: #4A2C2A; border: none; 
+                                   padding: 12px 24px; border-radius: 6px; font-weight: 600; 
+                                   cursor: pointer; display: flex; align-items: center; gap: 8px; 
+                                   margin-bottom: 20px;">
                         📤 Upload Files
                     </button>
 
-                    <textarea name="notes" rows="3" placeholder="Any additional notes or comments..." style="border: 1px solid #4A2C2A;"></textarea>
+                    <!-- Notes -->
+                    <textarea name="notes" rows="3" 
+                              placeholder="Any additional notes or comments..." 
+                              style="border: 1px solid #4A2C2A;"></textarea>
                     
+                    <!-- Follow-up Fields -->
                     <div id="followup-fields" class="conditional">
                         <label for="nextFollowupDate">Next Follow-up Date:*</label>
                         <input type="date" id="nextFollowupDate" name="nextFollowupDate">
                     </div>
+                    
+                    <!-- Submit Button -->
                     <button type="submit">Update Task <span class="keyboard-hint">Ctrl+Enter</span></button>
                 </form>
             </div>
 
-            <!-- Feedback -->
+            <!-- Feedback Messages -->
             <div id="success-banner" class="banner success" style="display:none;"></div>
             <div id="error-banner" class="banner error" style="display:none;"></div>
             <div id="loading" class="loading">Submitting...</div>
         </div>
     </div>
 
+    <!-- ============================================
+         CONFIGURATION & INITIALIZATION
+    ============================================ -->
     <script>
-        // === CONFIGURATION ===
+        // ========== CONFIGURATION ==========
+        // REPLACE THESE WITH YOUR ACTUAL VALUES
+        const SUPABASE_URL = 'https://your-project-id.supabase.co';
+        const SUPABASE_ANON_KEY = 'your-anon-key-here';
+        const ONESIGNAL_APP_ID = 'your-onesignal-app-id';
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxXnezA7i4xDyN_EitNIGi3g0Pv4dDgAFJV96wVHxvQqx3hjt43Rcwj_S4AC5CkC7Fy/exec';
-
-        // === INITIALIZATION ===
+        
+        // ========== GLOBAL VARIABLES ==========
+        let supabaseClient = null;
+        let currentUser = null;
+        let notificationsChannel = null;
+        let allTasks = [];
+        
+        // ========== ONE SIGNAL INITIALIZATION ==========
+        window.OneSignal = window.OneSignal || [];
+        
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize OneSignal
+            OneSignal.push(function() {
+                OneSignal.init({
+                    appId: ONESIGNAL_APP_ID,
+                    notifyButton: { enable: false },
+                    allowLocalhostAsSecureOrigin: true,
+                    promptOptions: {
+                        slidedown: {
+                            prompts: [
+                                {
+                                    type: "push",
+                                    autoPrompt: true,
+                                    text: {
+                                        actionMessage: "Get desktop notifications for proposal updates",
+                                        acceptButton: "Allow",
+                                        cancelButton: "No Thanks",
+                                        title: "Desktop Notifications"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                });
+                
+                console.log('OneSignal initialized');
+            });
+            
+            // Initialize Supabase
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
+            // Initialize your existing app
+            initializeApp();
+            
+            // Check auth state
+            checkAuthState();
+            
+            // Request browser notification permission
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        });
+        
+        function initializeApp() {
             // Set minimum dates
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('dueDate').min = today;
-            document.getElementById('nextFollowupDate').min = today;
-
+            if (document.getElementById('dueDate')) {
+                document.getElementById('dueDate').min = today;
+            }
+            if (document.getElementById('nextFollowupDate')) {
+                document.getElementById('nextFollowupDate').min = today;
+            }
+            
             // Load tasks for update form
             loadTasks();
             
@@ -555,44 +773,634 @@ async function signOut() {
             
             // Initialize search functionality
             initTaskSearch();
-        });
+            
+            // Initialize Naira formatting
+            initNairaFormatting();
+        }
+    </script>
 
-        // === KEYBOARD SHORTCUTS ===
-        function initKeyboardShortcuts() {
-            document.addEventListener('keydown', (e) => {
-                // Ctrl + 1 for New Opportunity tab
-                if (e.ctrlKey && e.key === '1') {
-                    e.preventDefault();
-                    showTab('new');
-                }
+    <!-- ============================================
+         AUTHENTICATION FUNCTIONS
+    ============================================ -->
+    <script>
+        // Show login form
+        function showLoginForm() {
+            document.getElementById('show-login-btn').style.display = 'none';
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('reset-form').style.display = 'none';
+        }
+        
+        // Show password reset form
+        function showPasswordReset() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('reset-form').style.display = 'block';
+        }
+        
+        // Sign in with email/password
+        async function signInWithEmail() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const errorElement = document.getElementById('login-error');
+            
+            // Clear previous errors
+            errorElement.style.display = 'none';
+            errorElement.textContent = '';
+            
+            if (!email || !password) {
+                errorElement.textContent = 'Please enter both email and password';
+                errorElement.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email.trim(),
+                    password: password
+                });
                 
-                // Ctrl + 2 for Update Task tab
-                if (e.ctrlKey && e.key === '2') {
-                    e.preventDefault();
-                    showTab('update');
-                }
+                if (error) throw error;
                 
-                // Ctrl + Enter to submit active form
-                if (e.ctrlKey && e.key === 'Enter') {
-                    e.preventDefault();
-                    const activeTab = document.querySelector('.tab-panel.active');
-                    const form = activeTab.querySelector('form');
-                    if (form) {
-                        const submitBtn = form.querySelector('button[type="submit"]');
-                        if (submitBtn && !submitBtn.disabled) {
-                            submitBtn.click();
-                        }
-                    }
+                // Clear form
+                document.getElementById('login-email').value = '';
+                document.getElementById('login-password').value = '';
+                
+                console.log('Signed in successfully:', data.user.email);
+                
+            } catch (error) {
+                console.error('Sign in error:', error);
+                errorElement.textContent = error.message || 'Sign in failed. Please check your credentials.';
+                errorElement.style.display = 'block';
+            }
+        }
+        
+        // Reset password
+        async function resetPassword() {
+            const email = document.getElementById('reset-email').value;
+            const messageElement = document.getElementById('reset-message');
+            
+            if (!email) {
+                alert('Please enter your email address');
+                return;
+            }
+            
+            try {
+                const { error } = await supabaseClient.auth.resetPasswordForEmail(email.trim(), {
+                    redirectTo: window.location.origin + '/reset-password.html'
+                });
+                
+                if (error) throw error;
+                
+                // Show success message
+                messageElement.style.display = 'block';
+                document.getElementById('reset-email').value = '';
+                
+                // Hide message after 5 seconds
+                setTimeout(() => {
+                    messageElement.style.display = 'none';
+                    showLoginForm();
+                }, 5000);
+                
+            } catch (error) {
+                console.error('Reset password error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        // Sign out
+        async function signOut() {
+            try {
+                await supabaseClient.auth.signOut();
+                console.log('Signed out successfully');
+            } catch (error) {
+                console.error('Sign out error:', error);
+            }
+        }
+        
+        // Check auth state
+        async function checkAuthState() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            
+            if (user) {
+                handleUserSignedIn(user);
+            } else {
+                handleUserSignedOut();
+            }
+        }
+        
+        // Handle user signed in
+        async function handleUserSignedIn(user) {
+            currentUser = user;
+            
+            // Update UI
+            document.getElementById('show-login-btn').style.display = 'none';
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('reset-form').style.display = 'none';
+            document.getElementById('user-info').style.display = 'block';
+            
+            const userName = user.user_metadata?.full_name || 
+                           user.email?.split('@')[0] || 
+                           'User';
+            document.getElementById('user-name').textContent = userName;
+            
+            // Save/update user in database
+            await saveUserToDatabase(user);
+            
+            // Link OneSignal ID
+            await linkOneSignalToUser(user.id);
+            
+            // Load notifications
+            loadNotifications();
+            
+            // Subscribe to realtime updates
+            subscribeToRealtime();
+            
+            // Show success message
+            showTempMessage('success-banner', `Welcome back, ${userName}!`, 3000);
+        }
+        
+        // Handle user signed out
+        function handleUserSignedOut() {
+            currentUser = null;
+            
+            // Update UI
+            document.getElementById('show-login-btn').style.display = 'block';
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('reset-form').style.display = 'none';
+            document.getElementById('user-info').style.display = 'none';
+            
+            // Unsubscribe from realtime
+            if (notificationsChannel) {
+                supabaseClient.removeChannel(notificationsChannel);
+                notificationsChannel = null;
+            }
+            
+            // Clear notifications
+            updateNotificationUI([]);
+        }
+        
+        // Save user to Supabase database
+        async function saveUserToDatabase(user) {
+            try {
+                const { error } = await supabaseClient
+                    .from('users')
+                    .upsert({
+                        id: user.id,
+                        email: user.email,
+                        full_name: user.user_metadata?.full_name,
+                        last_sign_in: new Date().toISOString()
+                    }, {
+                        onConflict: 'id'
+                    });
+                    
+                if (error) {
+                    console.error('Error saving user to database:', error);
                 }
+            } catch (error) {
+                console.error('Save user error:', error);
+            }
+        }
+        
+        // Link OneSignal ID to user
+        async function linkOneSignalToUser(userId) {
+            try {
+                const oneSignalUserId = await getOneSignalUserId();
+                if (oneSignalUserId) {
+                    await supabaseClient
+                        .from('users')
+                        .update({ onesignal_id: oneSignalUserId })
+                        .eq('id', userId);
+                    console.log('Linked OneSignal ID:', oneSignalUserId);
+                }
+            } catch (error) {
+                console.error('Link OneSignal error:', error);
+            }
+        }
+        
+        // Get OneSignal user ID
+        async function getOneSignalUserId() {
+            return new Promise((resolve) => {
+                OneSignal.getUserId().then(userId => {
+                    resolve(userId);
+                }).catch(() => resolve(null));
             });
         }
+        
+        // Listen for auth state changes
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            console.log('Auth state changed:', event);
+            
+            if (session?.user) {
+                handleUserSignedIn(session.user);
+            } else {
+                handleUserSignedOut();
+            }
+        });
+    </script>
 
-        // === TAB MANAGEMENT ===
+    <!-- ============================================
+         NOTIFICATIONS & REALTIME FUNCTIONS
+    ============================================ -->
+    <script>
+        // Load notifications from Supabase
+        async function loadNotifications() {
+            if (!currentUser) return;
+            
+            try {
+                const { data: notifications, error } = await supabaseClient
+                    .from('notifications')
+                    .select('*')
+                    .contains('recipients', [currentUser.id])
+                    .eq('status', 'pending')
+                    .order('created_at', { ascending: false });
+                    
+                if (error) throw error;
+                
+                updateNotificationUI(notifications || []);
+            } catch (error) {
+                console.error('Load notifications error:', error);
+            }
+        }
+        
+        // Subscribe to realtime updates
+        function subscribeToRealtime() {
+            if (!currentUser || notificationsChannel) return;
+            
+            notificationsChannel = supabaseClient
+                .channel('notifications-channel')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'notifications',
+                        filter: `recipients=cs.{${currentUser.id}}`
+                    },
+                    (payload) => {
+                        console.log('Realtime notification update:', payload);
+                        
+                        if (payload.eventType === 'INSERT') {
+                            // New notification
+                            addNotificationToUI(payload.new);
+                            
+                            // Send OneSignal push notification
+                            sendOneSignalPush(
+                                payload.new.title || 'New Review Request',
+                                payload.new.message,
+                                { 
+                                    taskId: payload.new.task_id,
+                                    notificationId: payload.new.id,
+                                    driveLink: payload.new.drive_link
+                                }
+                            );
+                            
+                            // Show browser notification if allowed
+                            showBrowserNotification(
+                                payload.new.title || 'New Review Request',
+                                payload.new.message
+                            );
+                            
+                        } else if (payload.eventType === 'UPDATE') {
+                            // Updated notification
+                            updateNotificationInUI(payload.new);
+                        }
+                    }
+                )
+                .subscribe();
+            
+            console.log('Subscribed to realtime notifications');
+        }
+        
+        // Update notification UI
+        function updateNotificationUI(notifications) {
+            const list = document.getElementById('notification-list');
+            const countBadge = document.getElementById('notification-count');
+            
+            if (!list) return;
+            
+            list.innerHTML = '';
+            const pendingNotifications = notifications.filter(n => n.status === 'pending');
+            
+            if (pendingNotifications.length === 0) {
+                list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
+                countBadge.textContent = '0';
+                countBadge.style.display = 'none';
+                return;
+            }
+            
+            pendingNotifications.forEach(notification => {
+                const item = createNotificationElement(notification);
+                list.appendChild(item);
+            });
+            
+            countBadge.textContent = pendingNotifications.length.toString();
+            countBadge.style.display = 'inline';
+        }
+        
+        // Add single notification to UI
+        function addNotificationToUI(notification) {
+            const list = document.getElementById('notification-list');
+            const countBadge = document.getElementById('notification-count');
+            
+            if (!list) return;
+            
+            // Remove "no notifications" message if present
+            if (list.innerHTML.includes('No notifications')) {
+                list.innerHTML = '';
+            }
+            
+            // Add new notification at top
+            const item = createNotificationElement(notification);
+            list.insertBefore(item, list.firstChild);
+            
+            // Update count
+            const currentCount = parseInt(countBadge.textContent) || 0;
+            countBadge.textContent = (currentCount + 1).toString();
+            countBadge.style.display = 'inline';
+            
+            // Show notification panel if not visible
+            const panel = document.getElementById('notification-panel');
+            if (panel.style.display === 'none') {
+                // Make bell pulse to attract attention
+                const bell = document.getElementById('notification-bell');
+                bell.style.animation = 'pulse 1s infinite';
+                setTimeout(() => {
+                    bell.style.animation = '';
+                }, 3000);
+            }
+        }
+        
+        // Create notification element
+        function createNotificationElement(notification) {
+            const div = document.createElement('div');
+            div.className = 'notification-item';
+            div.style.cssText = 'border-bottom:1px solid #eee; padding:15px 0;';
+            div.dataset.notificationId = notification.id;
+            
+            const isApprover = notification.approver_uid === currentUser?.id;
+            const now = new Date();
+            const created = new Date(notification.created_at);
+            const timeDiff = Math.floor((now - created) / (1000 * 60)); // minutes ago
+            let timeAgo = 'Just now';
+            
+            if (timeDiff >= 60) {
+                const hours = Math.floor(timeDiff / 60);
+                timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+            } else if (timeDiff > 0) {
+                timeAgo = `${timeDiff} minute${timeDiff > 1 ? 's' : ''} ago`;
+            }
+            
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <strong style="color: #333; display: block; margin-bottom: 5px; flex: 1;">
+                        ${notification.title || 'Review Request'}
+                    </strong>
+                    <small style="color: #999; font-size: 0.8em; white-space: nowrap;">
+                        ${timeAgo}
+                    </small>
+                </div>
+                <p style="margin: 5px 0; color: #666; font-size: 0.9em;">
+                    ${notification.message || 'No message'}
+                </p>
+                ${notification.drive_link ? 
+                    `<a href="${notification.drive_link}" target="_blank" 
+                       style="color: #D4AF37; text-decoration: none; font-size: 0.9em; 
+                              display: inline-block; margin-top: 5px;">
+                       📁 View Folder
+                    </a><br>` : ''
+                }
+                <div style="margin-top: 10px;">
+                    ${isApprover ? 
+                        `<button onclick="handleApprove('${notification.id}', '${notification.task_id}')" 
+                                style="background: #D4AF37; color: white; border: none; padding: 6px 12px; 
+                                       border-radius: 4px; margin-right: 8px; cursor: pointer; font-size: 0.85em;">
+                            Approve
+                        </button>` : ''
+                    }
+                    <button onclick="handleComment('${notification.id}', '${notification.task_id}')"
+                            style="background: #f0f0f0; color: #333; border: 1px solid #ddd; padding: 6px 12px; 
+                                   border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                        Comment
+                    </button>
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        // Send OneSignal push notification
+        async function sendOneSignalPush(title, message, data = {}) {
+            try {
+                // Get OneSignal user ID
+                const oneSignalUserId = await getOneSignalUserId();
+                if (!oneSignalUserId) return;
+                
+                // Send via your Apps Script
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'sendPushNotification',
+                        onesignalId: oneSignalUserId,
+                        title: title,
+                        message: message,
+                        data: data
+                    })
+                });
+                
+                console.log('Push notification sent:', response.ok);
+            } catch (error) {
+                console.error('Send push error:', error);
+            }
+        }
+        
+        // Show browser notification
+        function showBrowserNotification(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: 'Picture1.png',
+                    tag: 'gpms-notification'
+                });
+            }
+        }
+        
+        // Handle notification bell click
+        document.getElementById('notification-bell')?.addEventListener('click', () => {
+            const panel = document.getElementById('notification-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            
+            // Mark as read when opening
+            if (panel.style.display === 'block') {
+                const countBadge = document.getElementById('notification-count');
+                countBadge.style.display = 'none';
+            }
+        });
+        
+        // Close notification panel when clicking outside
+        document.addEventListener('click', (event) => {
+            const panel = document.getElementById('notification-panel');
+            const bell = document.getElementById('notification-bell');
+            
+            if (panel && panel.style.display === 'block' && 
+                !panel.contains(event.target) && 
+                !bell.contains(event.target)) {
+                panel.style.display = 'none';
+            }
+        });
+    </script>
+
+    <!-- ============================================
+         APPROVAL & COMMENT FUNCTIONS
+    ============================================ -->
+    <script>
+        // Handle approve
+        window.handleApprove = async (notificationId, taskId) => {
+            if (!currentUser) {
+                alert('Please sign in first to approve.');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to approve this task?')) {
+                return;
+            }
+            
+            try {
+                // Call Apps Script
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'approveTask',
+                        notificationId: notificationId,
+                        taskId: taskId,
+                        userUid: currentUser.id
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Server error');
+                }
+                
+                const result = await response.json();
+                
+                // Update notification in Supabase
+                const { error } = await supabaseClient
+                    .from('notifications')
+                    .update({
+                        status: 'approved',
+                        approved_by: currentUser.id,
+                        approved_at: new Date().toISOString()
+                    })
+                    .eq('id', notificationId);
+                    
+                if (error) throw error;
+                
+                // Remove from UI
+                const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                if (notificationElement) {
+                    notificationElement.remove();
+                }
+                
+                // Update count
+                updateNotificationCount();
+                
+                alert('Task approved successfully!');
+                
+            } catch (error) {
+                console.error('Approve error:', error);
+                alert('Approval failed: ' + error.message);
+            }
+        };
+        
+        // Handle comment
+        window.handleComment = async (notificationId, taskId) => {
+            if (!currentUser) {
+                alert('Please sign in first to comment.');
+                return;
+            }
+            
+            const comment = prompt('Enter your comment:');
+            if (!comment || comment.trim() === '') return;
+            
+            try {
+                // Call Apps Script
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'addComment',
+                        notificationId: notificationId,
+                        taskId: taskId,
+                        comment: comment.trim(),
+                        userUid: currentUser.id
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Server error');
+                }
+                
+                // Add comment to Supabase
+                const newComment = {
+                    uid: currentUser.id,
+                    name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Anonymous',
+                    comment: comment.trim(),
+                    timestamp: new Date().toISOString()
+                };
+                
+                const { error } = await supabaseClient.rpc('add_notification_comment', {
+                    notification_id: notificationId,
+                    new_comment: newComment
+                });
+                
+                if (error) throw error;
+                
+                alert('Comment added successfully!');
+                
+            } catch (error) {
+                console.error('Comment error:', error);
+                alert('Failed to add comment: ' + error.message);
+            }
+        };
+        
+        // Update notification count
+        function updateNotificationCount() {
+            const list = document.getElementById('notification-list');
+            const countBadge = document.getElementById('notification-count');
+            
+            if (!list) return;
+            
+            const notificationCount = list.querySelectorAll('.notification-item').length;
+            countBadge.textContent = notificationCount.toString();
+            
+            if (notificationCount === 0) {
+                countBadge.style.display = 'none';
+                if (!list.innerHTML.includes('No notifications')) {
+                    list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
+                }
+            } else {
+                countBadge.style.display = 'inline';
+            }
+        }
+    </script>
+
+    <!-- ============================================
+         YOUR EXISTING FORM HANDLING CODE
+         (Keep all your existing functionality)
+    ============================================ -->
+    <script>
+        // ========== TAB MANAGEMENT ==========
         function showTab(tabName) {
             document.querySelectorAll('.tab-panel').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(tabName + '-tab').classList.add('active');
-            document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+            
+            const tabElement = document.getElementById(tabName + '-tab');
+            const buttonElement = document.querySelector(`button[onclick="showTab('${tabName}')"]`);
+            
+            if (tabElement) tabElement.classList.add('active');
+            if (buttonElement) buttonElement.classList.add('active');
             
             // Focus first input in active tab
             setTimeout(() => {
@@ -600,28 +1408,8 @@ async function signOut() {
                 if (firstInput) firstInput.focus();
             }, 100);
         }
-
-        // === SIMPLE GOOGLE FORM OPENER ===
-        function openGoogleFormDirect() {
-            const taskSelect = document.getElementById('taskId');
-            const taskId = taskSelect.value;
-            
-            if (!taskId) {
-                showError('taskId', 'Please select a task before uploading documents.');
-                taskSelect.focus();
-                return;
-            }
-            
-            // Construct the Google Form URL with pre-filled Task ID
-            const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?usp=pp_url&entry.1694540215=' + encodeURIComponent(taskId);
-            
-            console.log('Opening Google Form for task:', taskId);
-            
-            // Open in new tab
-            window.open(FORM_URL, '_blank', 'noopener,noreferrer');
-        }
-
-        // === FORM VALIDATION ===
+        
+        // ========== FORM VALIDATION ==========
         function validateForm(formId) {
             let isValid = true;
             const form = document.getElementById(formId);
@@ -655,7 +1443,7 @@ async function signOut() {
             
             return isValid;
         }
-
+        
         function validateDate(dateString, fieldId) {
             if (!dateString) return true;
             
@@ -668,17 +1456,9 @@ async function signOut() {
                 return false;
             }
             
-            // Optional: Limit to 1 year in future
-            const maxDate = new Date();
-            maxDate.setFullYear(maxDate.getFullYear() + 1);
-            if (date > maxDate) {
-                showError(fieldId, 'Date cannot be more than 1 year in the future');
-                return false;
-            }
-            
             return true;
         }
-
+        
         function showError(fieldId, message) {
             const field = document.getElementById(fieldId);
             const errorElement = document.getElementById(`${fieldId}-error`);
@@ -693,7 +1473,7 @@ async function signOut() {
                 errorElement.style.display = 'block';
             }
         }
-
+        
         function clearErrors() {
             document.querySelectorAll('.error-field').forEach(field => {
                 field.classList.remove('error-field');
@@ -703,136 +1483,129 @@ async function signOut() {
                 error.style.display = 'none';
             });
         }
-
-        // === FORM SUBMISSION ===
-        // === FORM SUBMISSION ===
-async function handleSubmit(formId, e) {
-    e.preventDefault();
-    
-    // Validate form
-    if (!validateForm(formId)) {
-        return;
-    }
-    
-    const form = document.getElementById(formId);
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const loading = document.getElementById('loading');
-    const successBanner = document.getElementById('success-banner');
-    const errorBanner = document.getElementById('error-banner');
-
-    // ⭐ RESET CLASSES FIRST
-    successBanner.className = 'banner success';
-    errorBanner.className = 'banner error';
-    
-    successBanner.style.display = 'none';
-    errorBanner.style.display = 'none';
-    loading.style.display = 'block';
-    submitBtn.disabled = true;
-
-    try {
-        const formData = new FormData(form);
-
-        if (formId === 'update-form') {
-    const additionalReviewersSelect = document.getElementById('additionalReviewers');
-    if (additionalReviewersSelect) {
-        const selectedValues = Array.from(
-            additionalReviewersSelect.selectedOptions
-        ).map(opt => opt.value);
-
-        const additionalReviewers = selectedValues.join(',');
-        formData.set('additionalReviewers', additionalReviewers);
-    }
-
-    const statusValue = document.getElementById('status')?.value;
-    if (statusValue === 'ready_for_review' && !formData.has('additionalReviewers')) {
-        formData.set('additionalReviewers', '');
-    }
-}
-
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: formData,
-            mode: 'cors'
-        });
-
-        if (!response.ok) {
-            throw new Error(`Server responded with ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.status === 'success') {
-            // Format success message with checkmark
-            let successMessage = result.message || '✓ Success!';
-            if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
-                successMessage = '✓ ' + successMessage;
+        
+        // ========== FORM SUBMISSION ==========
+        async function handleSubmit(formId, e) {
+            e.preventDefault();
+            
+            // Check if user is authenticated
+            if (!currentUser) {
+                alert('Please sign in to submit forms.');
+                showLoginForm();
+                return;
             }
             
+            // Validate form
+            if (!validateForm(formId)) {
+                return;
+            }
+            
+            const form = document.getElementById(formId);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const loading = document.getElementById('loading');
+            const successBanner = document.getElementById('success-banner');
+            const errorBanner = document.getElementById('error-banner');
+            
+            // Reset classes
             successBanner.className = 'banner success';
-            successBanner.textContent = successMessage;
-            successBanner.style.display = 'block';
-
-            // Clear form
-            form.reset();
+            errorBanner.className = 'banner error';
             
-            // Clear draft
-            if (formId === 'new-form') {
-                localStorage.removeItem('newOpportunityDraft');
-                document.getElementById('draft-notice').style.display = 'none';
-            }
-
-            // Clear conditional fields
-            document.querySelectorAll('.conditional').forEach(field => {
-                if (field && field.classList) {
-                    field.classList.remove('visible');
-                    if (field.querySelectorAll) {
-                        field.querySelectorAll('input, select').forEach(input => {
-                            if (input) {
-                                input.required = false;
-                                if (input.type === 'number') input.value = '';
-                                if (input.type === 'date') input.value = '';
-                                if (input.tagName === 'SELECT') input.selectedIndex = 0;
-                            }
-                        });
+            successBanner.style.display = 'none';
+            errorBanner.style.display = 'none';
+            loading.style.display = 'block';
+            submitBtn.disabled = true;
+            
+            try {
+                const formData = new FormData(form);
+                
+                // Add user ID to form data
+                if (currentUser) {
+                    formData.append('userId', currentUser.id);
+                    formData.append('userEmail', currentUser.email);
+                }
+                
+                // Handle additional reviewers for update form
+                if (formId === 'update-form') {
+                    const additionalReviewersSelect = document.getElementById('additionalReviewers');
+                    if (additionalReviewersSelect) {
+                        const selectedValues = Array.from(
+                            additionalReviewersSelect.selectedOptions
+                        ).map(opt => opt.value);
+                        
+                        const additionalReviewers = selectedValues.join(',');
+                        formData.set('additionalReviewers', additionalReviewers);
+                    }
+                    
+                    const statusValue = document.getElementById('status')?.value;
+                    if (statusValue === 'ready_for_review' && !formData.has('additionalReviewers')) {
+                        formData.set('additionalReviewers', '');
                     }
                 }
-            });
-
-            // Reload tasks for update form
-            if (formId === 'update-form') {
-                await loadTasks();
+                
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'cors'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // Format success message
+                    let successMessage = result.message || '✓ Success!';
+                    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+                        successMessage = '✓ ' + successMessage;
+                    }
+                    
+                    successBanner.className = 'banner success';
+                    successBanner.textContent = successMessage;
+                    successBanner.style.display = 'block';
+                    
+                    // Clear form
+                    form.reset();
+                    
+                    // Clear draft for new form
+                    if (formId === 'new-form') {
+                        localStorage.removeItem('newOpportunityDraft');
+                        document.getElementById('draft-notice').style.display = 'none';
+                    }
+                    
+                    // Reload tasks for update form
+                    if (formId === 'update-form') {
+                        await loadTasks();
+                    }
+                    
+                    // Auto-refresh tasks after a delay
+                    setTimeout(() => {
+                        loadTasks();
+                    }, 1500);
+                    
+                    setTimeout(() => {
+                        successBanner.style.display = 'none';
+                    }, 6000);
+                } else {
+                    throw new Error(result.message || 'Submission failed');
+                }
+                
+            } catch (error) {
+                errorBanner.className = 'banner error';
+                errorBanner.textContent = `✗ ${error.message}`;
+                errorBanner.style.display = 'block';
+                console.error('Submission error:', error);
+            } finally {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
             }
-
-            // Auto-refresh tasks after a delay
-            setTimeout(() => {
-                loadTasks();
-            }, 1500);
-
-            setTimeout(() => {
-                successBanner.style.display = 'none';
-            }, 6000);
-        } else {
-            throw new Error(result.message || 'Submission failed');
         }
-
-    } catch (error) {
-        // ⭐ ENSURE ERROR CLASS
-        errorBanner.className = 'banner error';
-        errorBanner.textContent = `✗ ${error.message}`;
-        errorBanner.style.display = 'block';
-        console.error('Submission error:', error);
-    } finally {
-        loading.style.display = 'none';
-        submitBtn.disabled = false;
-    }
-}
-
-        // === TASK LOADING WITH SEARCH ===
-        let allTasks = [];
         
+        // ========== TASK LOADING ==========
         async function loadTasks() {
             const select = document.getElementById('taskId');
-            const originalHTML = select.innerHTML;
+            if (!select) return;
             
             try {
                 // Show loading state
@@ -852,9 +1625,6 @@ async function handleSubmit(formId, e) {
                 
                 const tasks = await response.json();
                 
-                // Debug log
-                console.log('Tasks loaded:', tasks);
-                
                 // Store all tasks for search
                 allTasks = tasks || [];
                 
@@ -870,14 +1640,18 @@ async function handleSubmit(formId, e) {
                 errorBanner.textContent = 'Failed to load tasks. Check console for details.';
                 errorBanner.style.display = 'block';
             } finally {
-                select.classList.remove('loading-dropdown');
-                select.disabled = false;
+                if (select) {
+                    select.classList.remove('loading-dropdown');
+                    select.disabled = false;
+                }
             }
         }
-
+        
         function populateTaskDropdown(tasks) {
             const select = document.getElementById('taskId');
-            const searchTerm = document.getElementById('task-search').value.toLowerCase();
+            if (!select) return;
+            
+            const searchTerm = document.getElementById('task-search')?.value.toLowerCase() || '';
             
             select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
             
@@ -902,10 +1676,13 @@ async function handleSubmit(formId, e) {
                 select.appendChild(option);
             });
             
-            // Show count
-            document.getElementById('task-search').placeholder = `🔍 Search ${filteredTasks.length} tasks...`;
+            // Show count in search placeholder
+            const searchInput = document.getElementById('task-search');
+            if (searchInput) {
+                searchInput.placeholder = `🔍 Search ${filteredTasks.length} tasks...`;
+            }
         }
-
+        
         function initTaskSearch() {
             const searchInput = document.getElementById('task-search');
             if (searchInput) {
@@ -914,8 +1691,8 @@ async function handleSubmit(formId, e) {
                 });
             }
         }
-
-        // === FORM DRAFT PERSISTENCE ===
+        
+        // ========== FORM DRAFT PERSISTENCE ==========
         function loadFormDraft() {
             const draft = localStorage.getItem('newOpportunityDraft');
             if (draft) {
@@ -948,9 +1725,12 @@ async function handleSubmit(formId, e) {
                 }
             }
         }
-
+        
         function saveFormDraft() {
-            const formData = new FormData(document.getElementById('new-form'));
+            const form = document.getElementById('new-form');
+            if (!form) return;
+            
+            const formData = new FormData(form);
             const data = Object.fromEntries(formData.entries());
             
             // Don't save if form is mostly empty
@@ -959,508 +1739,270 @@ async function handleSubmit(formId, e) {
                 localStorage.setItem('newOpportunityDraft', JSON.stringify(data));
             }
         }
-
+        
         function clearDraft() {
             localStorage.removeItem('newOpportunityDraft');
-            document.getElementById('new-form').reset();
+            const form = document.getElementById('new-form');
+            if (form) form.reset();
             document.getElementById('draft-notice').style.display = 'none';
         }
-
+        
         // Auto-save draft on input
         document.querySelectorAll('#new-form input, #new-form textarea, #new-form select').forEach(element => {
             element.addEventListener('input', saveFormDraft);
             element.addEventListener('change', saveFormDraft);
         });
-
-        // === EVENT LISTENERS ===
-        document.getElementById('new-form').addEventListener('submit', e => handleSubmit('new-form', e));
-        document.getElementById('update-form').addEventListener('submit', e => handleSubmit('update-form', e));
-
-        // === PARTNER SECTION FUNCTIONS ===
+        
+        // ========== EVENT LISTENERS ==========
+        document.getElementById('new-form')?.addEventListener('submit', e => handleSubmit('new-form', e));
+        document.getElementById('update-form')?.addEventListener('submit', e => handleSubmit('update-form', e));
+        
+        // ========== PARTNER SECTION FUNCTIONS ==========
         function togglePartnerSection() {
-          const section = document.getElementById('partner-section');
-          const isVisible = section.style.display !== 'none';
-          section.style.display = isVisible ? 'none' : 'block';
+            const section = document.getElementById('partner-section');
+            const isVisible = section.style.display !== 'none';
+            section.style.display = isVisible ? 'none' : 'block';
         }
         
         function toggleCloseFields() {
-          const status = document.getElementById('finalStatus').value;
-          
-          // Hide all
-          document.getElementById('close-won-fields').style.display = 'none';
-          document.getElementById('close-lost-fields').style.display = 'none';
-          
-          // Show relevant fields
-          if (status === 'won') {
-            document.getElementById('close-won-fields').style.display = 'block';
-          } else if (status === 'lost') {
-            document.getElementById('close-lost-fields').style.display = 'block';
-          }
+            const status = document.getElementById('finalStatus')?.value;
+            if (!status) return;
+            
+            // Hide all
+            document.getElementById('close-won-fields').style.display = 'none';
+            document.getElementById('close-lost-fields').style.display = 'none';
+            
+            // Show relevant fields
+            if (status === 'won') {
+                document.getElementById('close-won-fields').style.display = 'block';
+            } else if (status === 'lost') {
+                document.getElementById('close-lost-fields').style.display = 'block';
+            }
         }
         
         async function submitCloseTask() {
-          const taskSelect = document.getElementById('taskId');
-          const finalStatus = document.getElementById('finalStatus').value;
-          
-          if (!taskSelect.value) {
-            showError('taskId', 'Please select a task first');
-            taskSelect.focus();
-            return;
-          }
-          
-          if (!finalStatus) {
-            showError('finalStatus', 'Please select an outcome (Won/Lost/No Response)');
-            document.getElementById('finalStatus').focus();
-            return;
-          }
-          
-          // Validate won/lost fields
-          if (finalStatus === 'won') {
-            const actualValue = document.getElementById('actualValue').value;
-            if (!actualValue || Number(actualValue) <= 0) {
-              showError('actualValue', 'Please enter a valid actual value for Won tasks');
-              return;
-            }
-          }
-          
-          if (finalStatus === 'lost') {
-            const lossReason = document.getElementById('lossReason').value;
-            if (!lossReason) {
-              showError('lossReason', 'Please select a loss reason');
-              return;
-            }
-          }
-          
-          // Prepare data
-          const formData = new FormData();
-          formData.append('formType', 'closeTask');
-          formData.append('taskId', taskSelect.value);
-          formData.append('finalStatus', finalStatus);
-          
-          if (finalStatus === 'won') {
-            formData.append('actualValue', document.getElementById('actualValue').value);
-          }
-          
-          if (finalStatus === 'lost') {
-            formData.append('lossReason', document.getElementById('lossReason').value);
-          }
-          
-          // Submit
-          const loading = document.getElementById('loading');
-          const successBanner = document.getElementById('success-banner');
-          const errorBanner = document.getElementById('error-banner');
-          
-          loading.style.display = 'block';
-          successBanner.style.display = 'none';
-          errorBanner.style.display = 'none';
-          
-          try {
-            const response = await fetch(SCRIPT_URL, {
-              method: 'POST',
-              body: formData,
-              mode: 'cors'
-            });
+            const taskSelect = document.getElementById('taskId');
+            const finalStatus = document.getElementById('finalStatus')?.value;
             
-            const result = await response.json();
+            if (!taskSelect?.value) {
+                showError('taskId', 'Please select a task first');
+                taskSelect?.focus();
+                return;
+            }
             
-           if (result.status === 'success') {
-        // Format the message to ensure it has a checkmark
-        let successMessage = result.message;
-        if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
-            successMessage = '✓ ' + successMessage;
-        }
-        
-        successBanner.className = 'banner success';
-        successBanner.textContent = successMessage;
-        successBanner.style.display = 'block';
-        
-        // Reload tasks and reset form
-        await loadTasks();
-        document.getElementById('finalStatus').value = '';
-        document.getElementById('actualValue').value = '';
-        document.getElementById('lossReason').value = '';
-        document.getElementById('close-won-fields').style.display = 'none';
-        document.getElementById('close-lost-fields').style.display = 'none';
-        
-        // Hide partner section after successful close
-        document.getElementById('partner-section').style.display = 'none';
-        
-        setTimeout(() => {
+            if (!finalStatus) {
+                showError('finalStatus', 'Please select an outcome (Won/Lost/No Response)');
+                document.getElementById('finalStatus')?.focus();
+                return;
+            }
+            
+            // Validate won/lost fields
+            if (finalStatus === 'won') {
+                const actualValue = document.getElementById('actualValue')?.value;
+                if (!actualValue || Number(actualValue) <= 0) {
+                    showError('actualValue', 'Please enter a valid actual value for Won tasks');
+                    return;
+                }
+            }
+            
+            if (finalStatus === 'lost') {
+                const lossReason = document.getElementById('lossReason')?.value;
+                if (!lossReason) {
+                    showError('lossReason', 'Please select a loss reason');
+                    return;
+                }
+            }
+            
+            // Prepare data
+            const formData = new FormData();
+            formData.append('formType', 'closeTask');
+            formData.append('taskId', taskSelect.value);
+            formData.append('finalStatus', finalStatus);
+            
+            if (finalStatus === 'won') {
+                formData.append('actualValue', document.getElementById('actualValue').value);
+            }
+            
+            if (finalStatus === 'lost') {
+                formData.append('lossReason', document.getElementById('lossReason').value);
+            }
+            
+            // Submit
+            const loading = document.getElementById('loading');
+            const successBanner = document.getElementById('success-banner');
+            const errorBanner = document.getElementById('error-banner');
+            
+            loading.style.display = 'block';
             successBanner.style.display = 'none';
-        }, 6000);
-    } else {
-        throw new Error(result.message || 'Failed to close task');
-    }
-          } catch (error) {
-            console.error('Full error:', error);
-            errorBanner.className = 'banner error';
-            errorBanner.textContent = `✗ ${error.message}`;
-            errorBanner.style.display = 'block';
-          } finally {
-            loading.style.display = 'none';
-          }
+            errorBanner.style.display = 'none';
+            
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'cors'
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // Format the message to ensure it has a checkmark
+                    let successMessage = result.message;
+                    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+                        successMessage = '✓ ' + successMessage;
+                    }
+                    
+                    successBanner.className = 'banner success';
+                    successBanner.textContent = successMessage;
+                    successBanner.style.display = 'block';
+                    
+                    // Reload tasks and reset form
+                    await loadTasks();
+                    document.getElementById('finalStatus').value = '';
+                    document.getElementById('actualValue').value = '';
+                    document.getElementById('lossReason').value = '';
+                    document.getElementById('close-won-fields').style.display = 'none';
+                    document.getElementById('close-lost-fields').style.display = 'none';
+                    
+                    // Hide partner section after successful close
+                    document.getElementById('partner-section').style.display = 'none';
+                    
+                    setTimeout(() => {
+                        successBanner.style.display = 'none';
+                    }, 6000);
+                } else {
+                    throw new Error(result.message || 'Failed to close task');
+                }
+            } catch (error) {
+                console.error('Full error:', error);
+                errorBanner.className = 'banner error';
+                errorBanner.textContent = `✗ ${error.message}`;
+                errorBanner.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+            }
         }
         
-        // === NAIRA ESTIMATE FORMATTING ===
-        document.addEventListener('DOMContentLoaded', function() {
-          const displayField = document.getElementById('nairaEstimateDisplay');
-          const hiddenField = document.getElementById('nairaEstimate');
-          
-          if (displayField && hiddenField) {
-            // Format as user types
-            displayField.addEventListener('input', function(e) {
-              // Remove all non-digits (commas, spaces, etc.)
-              let rawValue = this.value.replace(/[^\d]/g, '');
-              
-              // Store raw number in hidden field (for form submission)
-              hiddenField.value = rawValue;
-              
-              // Format with commas for display
-              if (rawValue) {
-                const numValue = parseInt(rawValue);
-                if (!isNaN(numValue)) {
-                  this.value = new Intl.NumberFormat('en-NG').format(numValue);
-                }
-              } else {
-                this.value = '';
-              }
-              
-              // Save draft
-              saveFormDraft();
-            });
+        // ========== NAIRA ESTIMATE FORMATTING ==========
+        function initNairaFormatting() {
+            const displayField = document.getElementById('nairaEstimateDisplay');
+            const hiddenField = document.getElementById('nairaEstimate');
             
-            // Also handle paste
-            displayField.addEventListener('paste', function(e) {
-              setTimeout(() => {
-                let rawValue = this.value.replace(/[^\d]/g, '');
-                hiddenField.value = rawValue;
-                if (rawValue) {
-                  const numValue = parseInt(rawValue);
-                  if (!isNaN(numValue)) {
-                    this.value = new Intl.NumberFormat('en-NG').format(numValue);
-                  }
-                }
-                saveFormDraft();
-              }, 10);
-            });
-          }
-        });
+            if (displayField && hiddenField) {
+                // Format as user types
+                displayField.addEventListener('input', function(e) {
+                    // Remove all non-digits (commas, spaces, etc.)
+                    let rawValue = this.value.replace(/[^\d]/g, '');
+                    
+                    // Store raw number in hidden field (for form submission)
+                    hiddenField.value = rawValue;
+                    
+                    // Format with commas for display
+                    if (rawValue) {
+                        const numValue = parseInt(rawValue);
+                        if (!isNaN(numValue)) {
+                            this.value = new Intl.NumberFormat('en-NG').format(numValue);
+                        }
+                    } else {
+                        this.value = '';
+                    }
+                    
+                    // Save draft
+                    saveFormDraft();
+                });
+                
+                // Also handle paste
+                displayField.addEventListener('paste', function(e) {
+                    setTimeout(() => {
+                        let rawValue = this.value.replace(/[^\d]/g, '');
+                        hiddenField.value = rawValue;
+                        if (rawValue) {
+                            const numValue = parseInt(rawValue);
+                            if (!isNaN(numValue)) {
+                                this.value = new Intl.NumberFormat('en-NG').format(numValue);
+                            }
+                        }
+                        saveFormDraft();
+                    }, 10);
+                });
+            }
+        }
         
-    </script>
-
-<script type="module">
-  /* ===============================
-     Firebase SDK imports (MODULAR) - v12.8.0 from your Firebase snippet
-     =============================== */
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
-  import {
-    getFirestore,
-    collection,
-    query,
-    where,
-    orderBy,
-    onSnapshot,
-    doc,
-    setDoc,
-    updateDoc,
-    arrayUnion,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
-  import {
-    getMessaging,
-    getToken
-  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-messaging.js";
-
-  /* ===============================
-     Configuration
-     =============================== */
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXnezA7i4xDyN_EitNIGi3g0Pv4dDgAFJV96wVHxvQqx3hjt43Rcwj_S4AC5CkC7Fy/exec"; // ← CHANGE THIS TO YOUR REAL DEPLOYED WEB APP URL
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
-    authDomain: "gpms-notifications.firebaseapp.com",
-    projectId: "gpms-notifications",
-    storageBucket: "gpms-notifications.firebasestorage.app",
-    messagingSenderId: "240580625031",
-    appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
-    measurementId: "G-D41F7DQVLP"
-  };
-
-  /* ===============================
-     Initialize Firebase
-     =============================== */
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const messaging = getMessaging(app);
-
-  const provider = new GoogleAuthProvider();
-
-  /* ===============================
-     Global unsubscribe for notifications (prevents leaks)
-     =============================== */
-  let unsubscribeNotifications = null;
-
-  /* ===============================
-     Auth & UI Handlers
-     =============================== */
-  document.getElementById("sign-in-btn")?.addEventListener("click", async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      console.log("Signed in as:", result.user.displayName, result.user.email);
-    } catch (error) {
-      console.error("Sign-in failed:", error.code, error.message);
-      alert("Sign-in failed: " + error.message);
-    }
-  });
-
-  document.getElementById("sign-out-btn")?.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      console.log("Signed out successfully");
-    } catch (error) {
-      console.error("Sign-out failed:", error);
-    }
-  });
-
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      document.getElementById("sign-in-btn").style.display = "none";
-      document.getElementById("user-info").style.display = "block";
-      document.getElementById("user-name").textContent = user.displayName || user.email.split('@')[0];
-
-      // Save/update user profile
-      try {
-        await setDoc(doc(db, "users", user.uid), {
-          email: user.email,
-          name: user.displayName,
-          lastSignIn: serverTimestamp()
-        }, { merge: true });
-      } catch (err) {
-        console.error("Failed to save user profile:", err);
-      }
-
-      loadNotifications(user.uid);
-      requestNotificationPermission(user);
-    } else {
-      document.getElementById("sign-in-btn").style.display = "block";
-      document.getElementById("user-info").style.display = "none";
-      document.getElementById("notification-panel").style.display = "none";
-
-      // Clean up listener on sign-out
-      if (unsubscribeNotifications) {
-        unsubscribeNotifications();
-        unsubscribeNotifications = null;
-      }
-    }
-  });
-
-  /* ===============================
-     Load Notifications (real-time, with unsubscribe)
-     =============================== */
-  function loadNotifications(uid) {
-    if (!uid) return;
-
-    // Clean up previous listener
-    if (unsubscribeNotifications) {
-      unsubscribeNotifications();
-      unsubscribeNotifications = null;
-    }
-
-    const q = query(
-      collection(db, "notifications"),
-      where("recipients", "array-contains", uid),
-      where("status", "==", "pending"),
-      orderBy("timestamp", "desc")
-    );
-
-    unsubscribeNotifications = onSnapshot(q, (snapshot) => {
-      const list = document.getElementById("notification-list");
-      if (!list) return;
-
-      list.innerHTML = "";
-      let count = 0;
-
-      snapshot.forEach((docSnap) => {
-        const notif = docSnap.data();
-        count++;
-
-        const isApprover = notif.approverUid === auth.currentUser?.uid;
-
-        const item = document.createElement("div");
-        item.style = "border-bottom:1px solid #eee; padding:10px 0;";
-        item.innerHTML = `
-          <strong>${notif.title || "Review Request"}</strong><br>
-          ${notif.message || "No message"}<br>
-          <a href="${notif.driveLink || "#"}" target="_blank" style="color:var(--primary);">View Folder →</a><br><br>
-          ${isApprover ? `<button onclick="handleApprove('${docSnap.id}', '${notif.taskId}')">Approve</button>` : ""}
-          <button onclick="handleComment('${docSnap.id}', '${notif.taskId}')">Comment</button>
+        // ========== KEYBOARD SHORTCUTS ==========
+        function initKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Ctrl + 1 for New Opportunity tab
+                if (e.ctrlKey && e.key === '1') {
+                    e.preventDefault();
+                    showTab('new');
+                }
+                
+                // Ctrl + 2 for Update Task tab
+                if (e.ctrlKey && e.key === '2') {
+                    e.preventDefault();
+                    showTab('update');
+                }
+                
+                // Ctrl + Enter to submit active form
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    const activeTab = document.querySelector('.tab-panel.active');
+                    if (activeTab) {
+                        const form = activeTab.querySelector('form');
+                        if (form) {
+                            const submitBtn = form.querySelector('button[type="submit"]');
+                            if (submitBtn && !submitBtn.disabled) {
+                                submitBtn.click();
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // ========== GOOGLE FORM OPENER ==========
+        function openGoogleFormDirect() {
+            const taskSelect = document.getElementById('taskId');
+            const taskId = taskSelect?.value;
+            
+            if (!taskId) {
+                showError('taskId', 'Please select a task before uploading documents.');
+                taskSelect?.focus();
+                return;
+            }
+            
+            // Construct the Google Form URL with pre-filled Task ID
+            const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?usp=pp_url&entry.1694540215=' + encodeURIComponent(taskId);
+            
+            console.log('Opening Google Form for task:', taskId);
+            
+            // Open in new tab
+            window.open(FORM_URL, '_blank', 'noopener,noreferrer');
+        }
+        
+        // ========== HELPER FUNCTIONS ==========
+        function showTempMessage(bannerId, message, duration = 3000) {
+            const banner = document.getElementById(bannerId);
+            if (banner) {
+                banner.textContent = message;
+                banner.style.display = 'block';
+                
+                setTimeout(() => {
+                    banner.style.display = 'none';
+                }, duration);
+            }
+        }
+        
+        // Add CSS for pulse animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+                100% { transform: scale(1); }
+            }
         `;
-        list.appendChild(item);
-      });
-
-      const badge = document.getElementById("notification-count");
-      if (badge) {
-        badge.textContent = count;
-        badge.style.display = count > 0 ? "inline" : "none";
-      }
-    }, (error) => {
-      console.error("Notifications listener error:", error);
-    });
-  }
-
-  /* ===============================
-     Bell Toggle
-     =============================== */
-  document.getElementById("notification-bell")?.addEventListener("click", () => {
-    const panel = document.getElementById("notification-panel");
-    if (panel) {
-      panel.style.display = panel.style.display === "none" ? "block" : "none";
-    }
-  });
-
-  /* ===============================
-     Request Push Permission & Token (multi-device array)
-     =============================== */
-  async function requestNotificationPermission(user) {
-  if (!user) return;
-
-  try {
-    // Step 1: Request browser permission
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      console.log("Notification permission denied");
-      return;
-    }
-
-    console.log("Notification permission granted — registering SW...");
-
-    // Step 2: Register the Service Worker with correct scope
-    const swUrl = '/gpms/firebase-messaging-sw.js';
-    const registration = await navigator.serviceWorker.register(swUrl, {
-      scope: '/gpms/'
-    });
-
-    console.log("Service Worker registered with scope:", registration.scope);
-
-    // Step 3: IMPORTANT — wait for the SW to be fully active/ready
-    await navigator.serviceWorker.ready;  // This promise resolves when SW is active
-
-    console.log("Service Worker is now active and ready");
-
-    // Step 4: Now safely get the FCM token
-    const token = await getToken(messaging, {
-      vapidKey: "BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ",
-      serviceWorkerRegistration: registration
-    });
-
-    console.log("FCM Token:", token);
-
-    if (token) {
-      await updateDoc(doc(db, "users", user.uid), {
-        fcmTokens: arrayUnion(token),
-        updatedAt: serverTimestamp()
-      });
-      console.log("Token saved to Firestore");
-    }
-  } catch (err) {
-    console.error("Push permission/token error:", err);
-    alert("Push setup failed: " + (err.message || "Unknown error"));
-  }
-}
-
-// Approve – using JSON payload
-window.handleApprove = async (notificationId, taskId) => {
-  if (!auth.currentUser) {
-    return alert("Please sign in first to approve.");
-  }
-
-  try {
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        action: "approveTask",
-        notificationId: notificationId,
-        taskId: taskId,
-        userUid: auth.currentUser.uid
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(errText || "Server error during approval");
-    }
-
-    // Update local Firestore notification
-    await updateDoc(doc(db, "notifications", notificationId), {
-      status: "approved",
-      approvedBy: auth.currentUser.uid,
-      approvedAt: serverTimestamp()
-    });
-
-    alert("Task approved! The associate has been notified and can now send to client.");
-  } catch (err) {
-    console.error("Approve failed:", err);
-    alert("Approval failed: " + err.message);
-  }
-};
-
-// Comment – using JSON payload
-window.handleComment = async (notificationId, taskId) => {
-  if (!auth.currentUser) {
-    return alert("Please sign in first to comment.");
-  }
-
-  const comment = prompt("Enter your comment:");
-  if (!comment) return;
-
-  try {
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        action: "addComment",
-        notificationId: notificationId,
-        taskId: taskId,
-        comment: comment,
-        userUid: auth.currentUser.uid
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(errText || "Server error during comment");
-    }
-
-    // Update local Firestore
-    await updateDoc(doc(db, "notifications", notificationId), {
-      comments: arrayUnion({
-        uid: auth.currentUser.uid,
-        name: auth.currentUser.displayName || "Anonymous",
-        comment: comment,
-        timestamp: serverTimestamp()
-      })
-    });
-
-    alert("Comment added successfully.");
-  } catch (err) {
-    console.error("Comment failed:", err);
-    alert("Failed to add comment: " + err.message);
-  }
-};
-</script>
-    
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
