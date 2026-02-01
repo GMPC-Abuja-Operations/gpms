@@ -786,7 +786,24 @@
     ============================================ -->
     <script>
         // Initialize Supabase immediately (not in DOMContentLoaded)
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storage: localStorage,           // Explicitly use localStorage
+    autoRefreshToken: true,
+    persistSession: true,
+    storageKey: `sb-sudsanzsdppdjcsvsukf-auth-token`  // match your project ref
+  }
+});
+
+// Debug current session immediately
+supabaseClient.auth.getSession().then(({ data, error }) => {
+  console.log('Current session debug:');
+  console.log('Session exists?', !!data.session);
+  console.log('Access token?', data.session?.access_token ? 'yes' : 'no');
+  console.log('Refresh token?', data.session?.refresh_token ? 'yes' : 'no');
+  console.log('User ID?', data.session?.user?.id);
+  if (error) console.error('Get session error:', error);
+});
         
         // Check auth state immediately
         checkAuthState();
@@ -840,6 +857,11 @@
                 }
                 
                 console.log('Signed in successfully:', data.user.email);
+
+                // After successful signInWithPassword
+const { data: sessionData } = await supabaseClient.auth.getSession();
+console.log('Post-login session:', sessionData);
+localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessionData.session));
                 
                 // Clear form
                 document.getElementById('login-email').value = '';
