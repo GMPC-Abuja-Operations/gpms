@@ -365,6 +365,38 @@
         .notification-item:last-child {
             border-bottom: none;
         }
+        /* Add to your styles */
+.form-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.form-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    z-index: 10;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.tab-panel {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Optimize animations */
+* {
+    animation-duration: 0.3s !important;
+    transition-duration: 0.3s !important;
+}
     </style>
 </head>
 <body>
@@ -708,6 +740,7 @@
         let currentUser = null;
         let notificationsChannel = null;
         let allTasks = [];
+        let tasksLoading = false;
     </script>
     
     <!-- ============================================
@@ -754,30 +787,42 @@
         });
         
         function initializeApp() {
-            // Set minimum dates
-            const today = new Date().toISOString().split('T')[0];
-            if (document.getElementById('dueDate')) {
-                document.getElementById('dueDate').min = today;
+    // Set minimum dates
+    const today = new Date().toISOString().split('T')[0];
+    if (document.getElementById('dueDate')) {
+        document.getElementById('dueDate').min = today;
+    }
+    if (document.getElementById('nextFollowupDate')) {
+        document.getElementById('nextFollowupDate').min = today;
+    }
+    
+    // Load draft if exists
+    loadFormDraft();
+    
+    // Initialize keyboard shortcuts
+    initKeyboardShortcuts();
+    
+    // Initialize Naira formatting
+    initNairaFormatting();
+    
+    // Initialize search functionality (but don't load tasks yet)
+    initTaskSearch();
+    
+    // DON'T load tasks on initial page load - only when needed
+    // loadTasks(); // REMOVE THIS LINE
+    
+    // Instead, load tasks only when Update tab is shown
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (this.id === 'tab-update' || this.textContent.includes('Update Task')) {
+                // Small delay to ensure tab is visible
+                setTimeout(() => {
+                    loadTasks();
+                }, 100);
             }
-            if (document.getElementById('nextFollowupDate')) {
-                document.getElementById('nextFollowupDate').min = today;
-            }
-            
-            // Load tasks for update form
-            loadTasks();
-            
-            // Load draft if exists
-            loadFormDraft();
-            
-            // Initialize keyboard shortcuts
-            initKeyboardShortcuts();
-            
-            // Initialize search functionality
-            initTaskSearch();
-            
-            // Initialize Naira formatting
-            initNairaFormatting();
-        }
+        });
+    });
+}
     </script>
     
     <!-- ============================================
@@ -1900,48 +1945,76 @@
         
         // ========== TASK LOADING ==========
         async function loadTasks() {
-            const select = document.getElementById('taskId');
-            if (!select) return;
+    // Prevent multiple simultaneous loads
+    if (tasksLoading) return;
+    
+    const select = document.getElementById('taskId');
+    if (!select) return;
+    
+    tasksLoading = true;
+    
+    try {
+        // Show loading state only if dropdown is visible
+        if (select.offsetParent !== null) { // Check if element is visible
+            select.classList.add('loading-dropdown');
+            select.disabled = true;
+            select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
+        }
+        
+        // Add cache buster but with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        
+        // Call your Apps Script with timeout
+        const response = await fetch(`${SCRIPT_URL}?action=getTasks&t=${Date.now()}`, {
+            mode: 'cors',
+            cache: 'no-cache',
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const tasks = await response.json();
+        
+        // Store all tasks for search
+        allTasks = tasks || [];
+        
+        // Only populate if dropdown is still visible
+        if (select.offsetParent !== null) {
+            populateTaskDropdown(allTasks);
+        }
+        
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+        
+        // Only show error if dropdown is visible
+        const select = document.getElementById('taskId');
+        if (select && select.offsetParent !== null) {
+            select.innerHTML = '<option value="">Error loading tasks - try again</option>';
             
-            try {
-                // Show loading state
-                select.classList.add('loading-dropdown');
-                select.disabled = true;
-                select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
-                
-                // Call your Apps Script
-                const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
-                    mode: 'cors',
-                    cache: 'no-cache'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-                
-                const tasks = await response.json();
-                
-                // Store all tasks for search
-                allTasks = tasks || [];
-                
-                // Populate dropdown
-                populateTaskDropdown(allTasks);
-                
-            } catch (error) {
-                console.error('Error loading tasks:', error);
-                select.innerHTML = '<option value="">Error loading tasks</option>';
-                
-                // Show error in banner
-                const errorBanner = document.getElementById('error-banner');
-                errorBanner.textContent = 'Failed to load tasks. Check console for details.';
+            // Show error in banner
+            const errorBanner = document.getElementById('error-banner');
+            if (errorBanner) {
+                errorBanner.textContent = 'Failed to load tasks. You can still submit forms.';
                 errorBanner.style.display = 'block';
-            } finally {
-                if (select) {
-                    select.classList.remove('loading-dropdown');
-                    select.disabled = false;
-                }
+                setTimeout(() => {
+                    errorBanner.style.display = 'none';
+                }, 3000);
             }
         }
+    } finally {
+        tasksLoading = false;
+        const select = document.getElementById('taskId');
+        if (select) {
+            select.classList.remove('loading-dropdown');
+            select.disabled = false;
+        }
+    }
+}
         
         function populateTaskDropdown(tasks) {
             const select = document.getElementById('taskId');
