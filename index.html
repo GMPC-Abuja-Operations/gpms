@@ -1683,7 +1683,7 @@
                 successBanner.style.display = 'none';
             }, 6000);
         } else {
-            throw new Error(result.message || 'Submission failed');
+               throw new Error((result && result.message) || 'Submission failed: No response from server');
         }
         
     } catch (error) {
