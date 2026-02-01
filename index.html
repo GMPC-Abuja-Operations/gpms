@@ -1644,6 +1644,19 @@ if (formId === 'update-form') {
   }
 }
 
+// ========== ADD DEBUGGING CODE HERE ==========
+    console.log('=== DEBUG: Form Data Being Sent ===');
+    console.log('Form ID:', formId);
+    console.log('URL Params string:', urlParams.toString());
+    console.log('Has nairaEstimateDisplay?', urlParams.has('nairaEstimateDisplay'));
+    console.log('Has nairaEstimate?', urlParams.has('nairaEstimate'));
+    console.log('nairaEstimate value:', urlParams.get('nairaEstimate'));
+    console.log('All parameters being sent:');
+    for (let [key, value] of urlParams.entries()) {
+        console.log(`  ${key}: ${value}`);
+    }
+    // ========== END DEBUGGING CODE ==========
+        
 const response = await fetch(SCRIPT_URL, {
   method: 'POST',
   body: urlParams.toString(),  // ← URL-encoded string, not FormData
