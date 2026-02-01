@@ -1611,37 +1611,47 @@
     submitBtn.disabled = true;
     
     try {
-        const formData = new FormData(form);
-        
-        // Add user ID to form data
-        if (currentUser) {
-            formData.append('userId', currentUser.id);
-            formData.append('userEmail', currentUser.email);
-        }
-        
-        // Handle additional reviewers for update form
-        if (formId === 'update-form') {
-            const additionalReviewersSelect = document.getElementById('additionalReviewers');
-            if (additionalReviewersSelect) {
-                const selectedValues = Array.from(
-                    additionalReviewersSelect.selectedOptions
-                ).map(opt => opt.value);
-                
-                const additionalReviewers = selectedValues.join(',');
-                formData.set('additionalReviewers', additionalReviewers);
-            }
-            
-            const statusValue = document.getElementById('status')?.value;
-            if (statusValue === 'ready_for_review' && !formData.has('additionalReviewers')) {
-                formData.set('additionalReviewers', '');
-            }
-        }
-        
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: formData,
-            mode: 'cors'
-        });
+        // Convert FormData to URL-encoded string
+const formData = new FormData(form);
+const urlParams = new URLSearchParams();
+
+// Convert FormData entries to URLSearchParams
+formData.forEach((value, key) => {
+  urlParams.append(key, value);
+});
+
+// Add user ID to params
+if (currentUser) {
+  urlParams.append('userId', currentUser.id);
+  urlParams.append('userEmail', currentUser.email);
+}
+
+// Handle additional reviewers for update form
+if (formId === 'update-form') {
+  const additionalReviewersSelect = document.getElementById('additionalReviewers');
+  if (additionalReviewersSelect) {
+    const selectedValues = Array.from(
+      additionalReviewersSelect.selectedOptions
+    ).map(opt => opt.value);
+    
+    const additionalReviewers = selectedValues.join(',');
+    urlParams.set('additionalReviewers', additionalReviewers);
+  }
+  
+  const statusValue = document.getElementById('status')?.value;
+  if (statusValue === 'ready_for_review' && !urlParams.has('additionalReviewers')) {
+    urlParams.set('additionalReviewers', '');
+  }
+}
+
+const response = await fetch(SCRIPT_URL, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded'  // ← ADD THIS HEADER
+  },
+  body: urlParams.toString(),  // ← URL-encoded string, not FormData
+  mode: 'cors'
+});
         
         if (!response.ok) {
             throw new Error(`Server responded with ${response.status}`);
