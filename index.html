@@ -1076,224 +1076,6 @@
     </script>
 
     <!-- ============================================
-         AUTHENTICATION FUNCTIONS
-    ============================================ -->
-    <script>
-        // Show login form
-        function showLoginForm() {
-            document.getElementById('show-login-btn').style.display = 'none';
-            document.getElementById('login-form').style.display = 'block';
-            document.getElementById('reset-form').style.display = 'none';
-        }
-        
-        // Show password reset form
-        function showPasswordReset() {
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('reset-form').style.display = 'block';
-        }
-        
-        // Sign in with email/password
-        async function signInWithEmail() {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            const errorElement = document.getElementById('login-error');
-            
-            // Clear previous errors
-            errorElement.style.display = 'none';
-            errorElement.textContent = '';
-            
-            if (!email || !password) {
-                errorElement.textContent = 'Please enter both email and password';
-                errorElement.style.display = 'block';
-                return;
-            }
-            
-            try {
-                const { data, error } = await supabaseClient.auth.signInWithPassword({
-                    email: email.trim(),
-                    password: password
-                });
-                
-                if (error) throw error;
-                
-                // Clear form
-                document.getElementById('login-email').value = '';
-                document.getElementById('login-password').value = '';
-                
-                console.log('Signed in successfully:', data.user.email);
-                
-            } catch (error) {
-                console.error('Sign in error:', error);
-                errorElement.textContent = error.message || 'Sign in failed. Please check your credentials.';
-                errorElement.style.display = 'block';
-            }
-        }
-        
-        // Reset password
-        async function resetPassword() {
-            const email = document.getElementById('reset-email').value;
-            const messageElement = document.getElementById('reset-message');
-            
-            if (!email) {
-                alert('Please enter your email address');
-                return;
-            }
-            
-            try {
-                const { error } = await supabaseClient.auth.resetPasswordForEmail(email.trim(), {
-                    redirectTo: window.location.origin + '/reset-password.html'
-                });
-                
-                if (error) throw error;
-                
-                // Show success message
-                messageElement.style.display = 'block';
-                document.getElementById('reset-email').value = '';
-                
-                // Hide message after 5 seconds
-                setTimeout(() => {
-                    messageElement.style.display = 'none';
-                    showLoginForm();
-                }, 5000);
-                
-            } catch (error) {
-                console.error('Reset password error:', error);
-                alert('Error: ' + error.message);
-            }
-        }
-        
-        // Sign out
-        async function signOut() {
-            try {
-                await supabaseClient.auth.signOut();
-                console.log('Signed out successfully');
-            } catch (error) {
-                console.error('Sign out error:', error);
-            }
-        }
-        
-        // Check auth state
-        async function checkAuthState() {
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            
-            if (user) {
-                handleUserSignedIn(user);
-            } else {
-                handleUserSignedOut();
-            }
-        }
-        
-        // Handle user signed in
-        async function handleUserSignedIn(user) {
-            currentUser = user;
-            
-            // Update UI
-            document.getElementById('show-login-btn').style.display = 'none';
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('reset-form').style.display = 'none';
-            document.getElementById('user-info').style.display = 'block';
-            
-            const userName = user.user_metadata?.full_name || 
-                           user.email?.split('@')[0] || 
-                           'User';
-            document.getElementById('user-name').textContent = userName;
-            
-            // Save/update user in database
-            await saveUserToDatabase(user);
-            
-            // Link OneSignal ID
-            await linkOneSignalToUser(user.id);
-            
-            // Load notifications
-            loadNotifications();
-            
-            // Subscribe to realtime updates
-            subscribeToRealtime();
-            
-            // Show success message
-            showTempMessage('success-banner', `Welcome back, ${userName}!`, 3000);
-        }
-        
-        // Handle user signed out
-        function handleUserSignedOut() {
-            currentUser = null;
-            
-            // Update UI
-            document.getElementById('show-login-btn').style.display = 'block';
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('reset-form').style.display = 'none';
-            document.getElementById('user-info').style.display = 'none';
-            
-            // Unsubscribe from realtime
-            if (notificationsChannel) {
-                supabaseClient.removeChannel(notificationsChannel);
-                notificationsChannel = null;
-            }
-            
-            // Clear notifications
-            updateNotificationUI([]);
-        }
-        
-        // Save user to Supabase database
-        async function saveUserToDatabase(user) {
-            try {
-                const { error } = await supabaseClient
-                    .from('users')
-                    .upsert({
-                        id: user.id,
-                        email: user.email,
-                        full_name: user.user_metadata?.full_name,
-                        last_sign_in: new Date().toISOString()
-                    }, {
-                        onConflict: 'id'
-                    });
-                    
-                if (error) {
-                    console.error('Error saving user to database:', error);
-                }
-            } catch (error) {
-                console.error('Save user error:', error);
-            }
-        }
-        
-        // Link OneSignal ID to user
-        async function linkOneSignalToUser(userId) {
-            try {
-                const oneSignalUserId = await getOneSignalUserId();
-                if (oneSignalUserId) {
-                    await supabaseClient
-                        .from('users')
-                        .update({ onesignal_id: oneSignalUserId })
-                        .eq('id', userId);
-                    console.log('Linked OneSignal ID:', oneSignalUserId);
-                }
-            } catch (error) {
-                console.error('Link OneSignal error:', error);
-            }
-        }
-        
-        // Get OneSignal user ID
-        async function getOneSignalUserId() {
-            return new Promise((resolve) => {
-                OneSignal.getUserId().then(userId => {
-                    resolve(userId);
-                }).catch(() => resolve(null));
-            });
-        }
-        
-        // Listen for auth state changes
-        supabaseClient.auth.onAuthStateChange((event, session) => {
-            console.log('Auth state changed:', event);
-            
-            if (session?.user) {
-                handleUserSignedIn(session.user);
-            } else {
-                handleUserSignedOut();
-            }
-        });
-    </script>
-
-    <!-- ============================================
          NOTIFICATIONS & REALTIME FUNCTIONS
     ============================================ -->
     <script>
@@ -2322,6 +2104,58 @@
             console.error('Supabase connection error:', err);
         });
     }
+</script>
+    
+<script>
+// Performance monitoring
+const perf = {
+    startTimes: {},
+    mark: function(name) {
+        this.startTimes[name] = performance.now();
+        console.log(`⏱️ ${name} started`);
+    },
+    measure: function(name) {
+        if (this.startTimes[name]) {
+            const duration = performance.now() - this.startTimes[name];
+            console.log(`⏱️ ${name}: ${Math.round(duration)}ms`);
+            return duration;
+        }
+        return 0;
+    }
+};
+
+// Track page load
+perf.mark('pageLoad');
+
+window.addEventListener('load', () => {
+    const totalTime = perf.measure('pageLoad');
+    console.log(`📊 Total page load: ${Math.round(totalTime)}ms`);
+    
+    if (totalTime > 2000) {
+        console.warn('⚠️ Page load is slow. Check for:');
+        console.warn('1. Duplicate code (you have duplicate auth functions)');
+        console.warn('2. Unnecessary API calls (loadTasks on page load)');
+        console.warn('3. Multiple Supabase auth listeners');
+    }
+});
+
+// Track loadTasks performance
+const originalLoadTasks = loadTasks;
+loadTasks = async function() {
+    perf.mark('loadTasks');
+    await originalLoadTasks();
+    perf.measure('loadTasks');
+};
+
+// Track form submissions
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', () => {
+        perf.mark('formSubmit');
+        setTimeout(() => {
+            perf.measure('formSubmit');
+        }, 1000);
+    });
+});
 </script>
 </body>
 </html>
