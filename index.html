@@ -708,6 +708,7 @@
         let currentUser = null;
         let notificationsChannel = null;
         let allTasks = [];
+        let authInitialized = false;
     </script>
     
     <!-- ============================================
@@ -912,6 +913,11 @@
         
         // Handle user signed in
         async function handleUserSignedIn(user) {
+    if (authInitialized) {
+        console.log('Auth already initialized, skipping');
+        return;
+    }
+    authInitialized = true;
             console.log('User signed in:', user.email);
             currentUser = user;
             
@@ -961,6 +967,8 @@
             
             // Clear notifications
             updateNotificationUI([]);
+            
+            authInitialized = false;
         }
         
         // Save user to Supabase database
@@ -992,7 +1000,7 @@
   });
 
   if (oneSignalUserId) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('users')
       .update({ onesignal_id: oneSignalUserId })
       .eq('id', userId);
