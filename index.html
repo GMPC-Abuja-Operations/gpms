@@ -701,7 +701,7 @@
         const SUPABASE_URL = 'https://sudsanzsdppdjcsvsukf.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo';
         const ONESIGNAL_APP_ID = '179a1072-ca8a-4e68-8d61-d3419d7d5138';
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxXnezA7i4xDyN_EitNIGi3g0Pv4dDgAFJV96wVHxvQqx3hjt43Rcwj_S4AC5CkC7Fy/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxmZMTn3aS0RDWAwoprPQwrQq4GpogWyvlHLVxyzLfZG1x8b7aCDoNIg_f6Z3qEVqnd/exec';
         
         // ========== GLOBAL VARIABLES ==========
         let supabaseClient = null;
@@ -987,19 +987,20 @@
         
         // Link OneSignal ID to user
         async function linkOneSignalToUser(userId) {
-            try {
-                const oneSignalUserId = await getOneSignalUserId();
-                if (oneSignalUserId) {
-                    await supabaseClient
-                        .from('users')
-                        .update({ onesignal_id: oneSignalUserId })
-                        .eq('id', userId);
-                    console.log('Linked OneSignal ID:', oneSignalUserId);
-                }
-            } catch (error) {
-                console.error('Link OneSignal error:', error);
-            }
-        }
+  const oneSignalUserId = await new Promise(resolve => {
+    OneSignal.getUserId(resolve);
+  });
+
+  if (oneSignalUserId) {
+    const { error } = await supabase
+      .from('users')
+      .update({ onesignal_id: oneSignalUserId })
+      .eq('id', userId);
+
+    if (error) console.error('Failed to link OneSignal ID:', error);
+    else console.log('Linked OneSignal ID:', oneSignalUserId);
+  }
+}
         
         // Get OneSignal user ID
         async function getOneSignalUserId() {
