@@ -716,37 +716,53 @@
     ============================================ -->
     <script>
         // Initialize OneSignal when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            // Initialize OneSignal
-            window.OneSignal = window.OneSignal || [];
-            OneSignal.push(function() {
-                OneSignal.init({
-                    appId: ONESIGNAL_APP_ID,
-                    notifyButton: { enable: false },
-                    allowLocalhostAsSecureOrigin: true,
-                    promptOptions: {
-                        slidedown: {
-                            prompts: [
-                                {
-                                    type: "push",
-                                    autoPrompt: true,
-                                    text: {
-                                        actionMessage: "Get desktop notifications for proposal updates",
-                                        acceptButton: "Allow",
-                                        cancelButton: "No Thanks",
-                                        title: "Desktop Notifications"
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                });
-                
-                console.log('OneSignal initialized');
-            });
-            
-            // Initialize your existing app
-            initializeApp();
+        // OneSignal - Deferred + proper permission handling
+document.addEventListener('DOMContentLoaded', () => {
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+  OneSignalDeferred.push(async function (OneSignal) {
+    await OneSignal.init({
+      appId: ONESIGNAL_APP_ID,
+      notifyButton: { enable: false },
+      allowLocalhostAsSecureOrigin: true,
+      autoResubscribe: true,
+      promptOptions: {
+        slidedown: {
+          prompts: [{
+            type: "push",
+            autoPrompt: true,
+            time: 0,                    // show immediately
+            pageViews: 1,
+            text: {
+              actionMessage: "Get instant updates for tasks & reviews",
+              acceptButton: "Allow",
+              cancelButton: "No Thanks",
+              title: "Enable Notifications"
+            }
+          }]
+        }
+      }
+    });
+
+    console.log('OneSignal initialized');
+
+    // Debug current permission & ID
+    const permission = await OneSignal.Notifications.permission;
+    console.log('Current notification permission:', permission);
+
+    if (permission !== 'granted') {
+      console.log('Requesting notification permission...');
+      const granted = await OneSignal.Notifications.requestPermission();
+      console.log('Permission granted?', granted);
+    }
+
+    const id = await OneSignal.User.getId();
+    console.log('OneSignal User ID on load:', id || 'Not subscribed yet');
+  });
+
+  // Your existing initializeApp()
+  initializeApp();
+});
             
             // Request browser notification permission
             if ('Notification' in window && Notification.permission === 'default') {
@@ -1017,8 +1033,24 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
         
         // Link OneSignal ID to user
         async function linkOneSignalToUser(userId) {
-  const oneSignalUserId = await new Promise(resolve => {
-    OneSignal.getUserId(resolve);
+  console.log("Linking OneSignal for user:", userId);
+
+  // Wait up to 10 seconds for ID to become available
+  const oneSignalUserId = await new Promise((resolve) => {
+    let attempts = 0;
+    const interval = setInterval(() => {
+      OneSignal.User.getId((id) => {
+        if (id) {
+          clearInterval(interval);
+          console.log("OneSignal ID ready:", id);
+          resolve(id);
+        } else if (attempts++ >= 20) {
+          clearInterval(interval);
+          console.warn("Timed out waiting for OneSignal ID");
+          resolve(null);
+        }
+      });
+    }, 500);
   });
 
   if (oneSignalUserId) {
@@ -1027,8 +1059,13 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
       .update({ onesignal_id: oneSignalUserId })
       .eq('id', userId);
 
-    if (error) console.error('Failed to link OneSignal ID:', error);
-    else console.log('Linked OneSignal ID:', oneSignalUserId);
+    if (error) {
+      console.error("Failed to link OneSignal ID:", error);
+    } else {
+      console.log("Successfully linked OneSignal ID:", oneSignalUserId);
+    }
+  } else {
+    console.warn("No OneSignal ID after waiting — check permission/browser settings");
   }
 }
         
@@ -1294,29 +1331,26 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
         
         // Send OneSignal push notification
         async function sendOneSignalPush(title, message, data = {}) {
-            try {
-                // Get OneSignal user ID
-                const oneSignalUserId = await getOneSignalUserId();
-                if (!oneSignalUserId) return;
-                
-                // Send via your Apps Script
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'sendPushNotification',
-                        onesignalId: oneSignalUserId,
-                        title: title,
-                        message: message,
-                        data: data
-                    })
-                });
-                
-                console.log('Push notification sent:', response.ok);
-            } catch (error) {
-                console.error('Send push error:', error);
-            }
-        }
+  const oneSignalUserId = await getOneSignalUserId();
+  if (!oneSignalUserId) return;
+
+  const response = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'sendPushNotification',
+      onesignalId: oneSignalUserId,
+      title: title,
+      message: message,
+      data: {
+        ...data,
+        url: "https://gmpc-abuja-operations.github.io/gpms/"  // ← open your app
+      }
+    })
+  });
+
+  console.log('Push sent:', response.ok);
+}
         
         // Show browser notification
         function showBrowserNotification(title, body) {
