@@ -701,6 +701,7 @@
         // REPLACE THESE WITH YOUR ACTUAL VALUES
         const SUPABASE_URL = 'https://sudsanzsdppdjcsvsukf.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo';
+        const ONESIGNAL_APP_ID = '179a1072-ca8a-4e68-8d61-d3419d7d5138';
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyPioAhD6eZvzOQTbpoIYatKMTLbZfMvFWPHj1z8pSoKeVJZ_zIHF1fy1qEC9O_s0p0/exec';
         
         // ========== GLOBAL VARIABLES ==========
@@ -709,6 +710,44 @@
         let notificationsChannel = null;
         let allTasks = [];
         let authInitialized = false;
+    </script>
+    
+    <script>
+  // Initialize app when DOM is loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
+
+            function initializeApp() {
+            // Set minimum dates
+            const today = new Date().toISOString().split('T')[0];
+            if (document.getElementById('dueDate')) {
+                document.getElementById('dueDate').min = today;
+            }
+            if (document.getElementById('nextFollowupDate')) {
+                document.getElementById('nextFollowupDate').min = today;
+            }
+            
+            // Load tasks for update form
+            loadTasks();
+            
+            // Load draft if exists
+            loadFormDraft();
+            
+            // Initialize keyboard shortcuts
+            initKeyboardShortcuts();
+            
+            // Initialize search functionality
+            initTaskSearch();
+            
+            // Initialize Naira formatting
+            initNairaFormatting();
+        }
+    
+    // Request notification permission if not already granted/denied
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    });
     </script>
     
     <!-- ============================================
@@ -1103,6 +1142,71 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
             }
         }
         
+        // Link OneSignal ID to user
+        async function linkOneSignalToUser(userId) {
+  console.log("Attempting to link OneSignal for user:", userId);
+
+  // Wait for SDK to be ready
+  if (typeof OneSignal === 'undefined' || typeof OneSignal.getUserId !== 'function') {
+    console.warn("OneSignal SDK not ready — waiting 3 seconds...");
+    await new Promise(r => setTimeout(r, 3000));
+    if (typeof OneSignal === 'undefined' || typeof OneSignal.getUserId !== 'function') {
+      console.error("OneSignal still not ready — skipping link");
+      return;
+    }
+  }
+
+  const oneSignalUserId = await new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 20; // 10 seconds
+
+    const check = () => {
+      OneSignal.getUserId((id) => {
+        if (id) {
+          console.log("OneSignal ID found:", id);
+          resolve(id);
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          console.log(`No ID yet (attempt ${attempts}/${maxAttempts})`);
+          setTimeout(check, 500);
+        } else {
+          console.warn("Timed out waiting for OneSignal ID");
+          resolve(null);
+        }
+      });
+    };
+
+    check();
+  });
+
+  if (oneSignalUserId) {
+    try {
+      const { error } = await supabaseClient
+        .from('users')
+        .update({ onesignal_id: oneSignalUserId })
+        .eq('id', userId);
+
+      if (error) {
+        console.error("Failed to save OneSignal ID:", error.message);
+      } else {
+        console.log("Successfully linked OneSignal ID:", oneSignalUserId);
+      }
+    } catch (err) {
+      console.error("Supabase error during link:", err);
+    }
+  } else {
+    console.warn("No OneSignal ID after waiting — check if notifications are allowed");
+  }
+}
+        
+        // Get OneSignal user ID
+        async function getOneSignalUserId() {
+            return new Promise((resolve) => {
+                OneSignal.getUserId().then(userId => {
+                    resolve(userId);
+                }).catch(() => resolve(null));
+            });
+        }
         
         // Listen for auth state changes
         supabaseClient.auth.onAuthStateChange((event, session) => {
@@ -1355,6 +1459,28 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
             return div;
         }
         
+        // Send OneSignal push notification
+        async function sendOneSignalPush(title, message, data = {}) {
+  const oneSignalUserId = await getOneSignalUserId();
+  if (!oneSignalUserId) return;
+
+  const response = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'sendPushNotification',
+      onesignalId: oneSignalUserId,
+      title: title,
+      message: message,
+      data: {
+        ...data,
+        url: "https://gmpc-abuja-operations.github.io/gpms/"  // ← open your app
+      }
+    })
+  });
+
+  console.log('Push sent:', response.ok);
+}
         
         // Show browser notification
         function showBrowserNotification(title, body) {
@@ -1667,92 +1793,113 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
     submitBtn.disabled = true;
     
     try {
-    const formData = new FormData(form);
-    const urlParams = new URLSearchParams();
+        // Convert FormData to URL-encoded string
+// Fixed version
+const formData = new FormData(form);
+const urlParams = new URLSearchParams();
 
-    // Convert FormData to URLSearchParams (handles multiple values correctly)
-    formData.forEach((value, key) => {
-        urlParams.append(key, value);
-    });
-
-    // Add current user info
-    if (currentUser) {
-        urlParams.append('userId', currentUser.id);
-        urlParams.append('userEmail', currentUser.email);
-    }
-
-    // Special handling for multiple-select (additionalReviewers)
-    if (formId === 'update-form') {
-        const additionalReviewersSelect = document.getElementById('additionalReviewers');
-        if (additionalReviewersSelect) {
-            const selectedValues = Array.from(additionalReviewersSelect.selectedOptions)
-                                       .map(opt => opt.value.trim())
-                                       .filter(Boolean);
-            const reviewersCsv = selectedValues.join(',');
-            urlParams.set('additionalReviewers', reviewersCsv);
-        }
-
-        // Ensure empty reviewers is sent when needed
-        const statusValue = document.getElementById('status')?.value;
-        if (statusValue === 'ready_for_review' && !urlParams.has('additionalReviewers')) {
-            urlParams.set('additionalReviewers', '');
-        }
-    }
-
-    // Now send it
-    const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: urlParams.toString(),
-        mode: 'cors'
-    });
-
-    // Rest of your success/error handling stays the same...
-    if (response.ok) {
-        const result = await response.json();
-        const isSuccess = result?.status === 'success' ||
-                         result?.message?.includes('successfully') ||
-                         result?.taskId ||
-                         result?.updatedStatus;
-
-        if (isSuccess) {
-            let successMessage = result.message || '✓ Operation completed successfully!';
-            if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
-                successMessage = '✓ ' + successMessage;
-            }
-            successBanner.className = 'banner success';
-            successBanner.textContent = successMessage;
-            successBanner.style.display = 'block';
-
-            form.reset();
-            if (formId === 'new-form') {
-                localStorage.removeItem('newOpportunityDraft');
-                document.getElementById('draft-notice').style.display = 'none';
-            }
-            if (formId === 'update-form') {
-                await loadTasks();
-            }
-            setTimeout(() => successBanner.style.display = 'none', 6000);
-        } else {
-            const errMsg = result?.message || 'Submission failed - check console/server logs';
-            errorBanner.textContent = `✗ ${errMsg}`;
-            errorBanner.style.display = 'block';
-            console.error('Server returned non-success:', result);
-        }
+for (const [key, value] of formData.entries()) {
+    // Handle array-style field names
+    if (key.endsWith('[]')) {
+        const baseName = key.slice(0, -2);
+        urlParams.append(baseName, value);
     } else {
-        throw new Error(`Server HTTP error: ${response.status}`);
+        urlParams.append(key, value);
+    }
+}
+// Convert FormData entries to URLSearchParams
+formData.forEach((value, key) => {
+  urlParams.append(key, value);
+});
+
+// Add user ID to params
+if (currentUser) {
+  urlParams.append('userId', currentUser.id);
+  urlParams.append('userEmail', currentUser.email);
+}
+
+// Handle additional reviewers for update form
+if (formId === 'update-form') {
+  const additionalReviewersSelect = document.getElementById('additionalReviewers');
+  if (additionalReviewersSelect) {
+    const selectedValues = Array.from(
+      additionalReviewersSelect.selectedOptions
+    ).map(opt => opt.value);
+    
+    const additionalReviewers = selectedValues.join(',');
+    urlParams.set('additionalReviewers', additionalReviewers);
+  }
+  
+  const statusValue = document.getElementById('status')?.value;
+  if (statusValue === 'ready_for_review' && !urlParams.has('additionalReviewers')) {
+    urlParams.set('additionalReviewers', '');
+  }
+}
+
+const response = await fetch(SCRIPT_URL, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded'  // ← ADD THIS HEADER
+  },
+  body: urlParams.toString(),  // ← URL-encoded string, not FormData
+  mode: 'cors'
+});
+        
+        // In handleSubmit, replace the if/else block with:
+
+if (response.ok) {
+  const result = await response.json();
+
+  // Flexible success check
+  const isSuccess = 
+    result?.status === 'success' || 
+    result?.message?.includes('successfully') || 
+    result?.taskId || 
+    result?.updatedStatus;
+
+  if (isSuccess) {
+    let successMessage = result.message || '✓ Operation completed successfully!';
+    
+    // Clean up message for display
+    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+      successMessage = '✓ ' + successMessage;
     }
 
-} catch (error) {
-    errorBanner.className = 'banner error';
-    errorBanner.textContent = `✗ ${error.message}`;
+    successBanner.className = 'banner success';
+    successBanner.textContent = successMessage;
+    successBanner.style.display = 'block';
+
+    // Clear form, reload tasks, etc.
+    form.reset();
+    if (formId === 'new-form') {
+      localStorage.removeItem('newOpportunityDraft');
+      document.getElementById('draft-notice').style.display = 'none';
+    }
+    if (formId === 'update-form') {
+      await loadTasks();
+    }
+
+    setTimeout(() => successBanner.style.display = 'none', 6000);
+  } else {
+    // Only show real errors
+    const errMsg = result?.message || 'Submission failed - check console/server logs';
+    errorBanner.textContent = `✗ ${errMsg}`;
     errorBanner.style.display = 'block';
-    console.error('Submission error:', error);
-} finally {
-    loading.style.display = 'none';
-    submitBtn.disabled = false;
+    console.error('Server returned non-success:', result);
+  }
+} else {
+  throw new Error(`Server HTTP error: ${response.status}`);
+}
+        
+    } catch (error) {
+        errorBanner.className = 'banner error';
+        errorBanner.textContent = `✗ ${error.message}`;
+        errorBanner.style.display = 'block';
+        console.error('Submission error:', error);
+    } finally {
+        loading.style.display = 'none';
+        submitBtn.disabled = false;
+    }
 }
         
         // ========== TASK LOADING ==========
@@ -2232,44 +2379,5 @@ document.querySelectorAll('form').forEach(form => {
     });
 });
 </script>
-
-<script>
-  // Initialize app when DOM is loaded
-  document.addEventListener('DOMContentLoaded', () => {
-    initializeApp();
-
-            function initializeApp() {
-            // Set minimum dates
-            const today = new Date().toISOString().split('T')[0];
-            if (document.getElementById('dueDate')) {
-                document.getElementById('dueDate').min = today;
-            }
-            if (document.getElementById('nextFollowupDate')) {
-                document.getElementById('nextFollowupDate').min = today;
-            }
-            
-            // Load tasks for update form
-            loadTasks();
-            
-            // Load draft if exists
-            loadFormDraft();
-            
-            // Initialize keyboard shortcuts
-            initKeyboardShortcuts();
-            
-            // Initialize search functionality
-            initTaskSearch();
-            
-            // Initialize Naira formatting
-            initNairaFormatting();
-        }
-    
-    // Request notification permission if not already granted/denied
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-    });
-    </script>
-
 </body>
 </html>
