@@ -1,251 +1,209 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Multi-Browser Push Test</title>
+  <title>Multi-Browser FCM Test</title>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+  
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-    .banner { 
-      background: #e3f2fd; 
-      padding: 15px; 
-      border-radius: 5px; 
-      margin-bottom: 20px;
-      border-left: 4px solid #2196f3;
+    .card { 
+      background: white; 
+      padding: 20px; 
+      margin: 20px 0; 
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    .chrome-banner { background: #e8f5e8; border-left-color: #4caf50; }
-    .edge-banner { background: #f3e5f5; border-left-color: #9c27b0; }
     button { 
       padding: 12px 24px; 
-      background: #2196f3; 
-      color: white; 
+      background: #D4AF37; 
+      color: #4A2C2A; 
       border: none; 
-      border-radius: 4px; 
+      border-radius: 6px; 
       cursor: pointer;
       font-size: 16px;
-      margin: 5px;
+      font-weight: bold;
+      margin: 10px 5px;
     }
-    .chrome-btn { background: #4caf50; }
-    .edge-btn { background: #9c27b0; }
+    button:hover { background: #B8972E; }
+    .chrome { background: #4CAF50; color: white; }
+    .edge { background: #9C27B0; color: white; }
     #result { 
-      background: #f5f5f5; 
+      background: #F5F0E1; 
       padding: 20px; 
       margin-top: 20px; 
-      border-radius: 5px;
+      border-radius: 6px;
+      border: 1px solid #D4AF37;
       white-space: pre-wrap;
       word-break: break-all;
       font-family: monospace;
-      font-size: 12px;
-      border: 1px solid #ddd;
     }
-    .success { color: #4caf50; font-weight: bold; }
-    .warning { color: #ff9800; font-weight: bold; }
+    .success { color: #4CAF50; }
     .error { color: #f44336; }
     .info { color: #2196f3; }
   </style>
 </head>
 <body>
-  <h1>Push Notification Compatibility Test</h1>
-  
-  <div id="browser-banner" class="banner">
-    <strong id="browser-name">Detecting browser...</strong><br>
-    <span id="push-service">Checking push service...</span>
+  <div class="card">
+    <h2>Multi-Browser FCM Test</h2>
+    <p>Test FCM/push notifications in different browsers.</p>
+    
+    <div id="browser-info" style="margin: 15px 0; padding: 10px; background: #e3f2fd; border-radius: 4px;"></div>
+    
+    <button onclick="testChromeMethod()" class="chrome">Test Chrome Method</button>
+    <button onclick="testEdgeMethod()" class="edge">Test Edge Method</button>
+    <button onclick="testUniversalMethod()">Test Universal Method</button>
+    
+    <div id="result"></div>
   </div>
-  
-  <div style="margin: 20px 0;">
-    <h3>Test Options:</h3>
-    <button onclick="testInChrome()" class="chrome-btn">Test in Chrome (Recommended for FCM)</button>
-    <button onclick="testCurrentBrowser()">Test in Current Browser</button>
-    <button onclick="clearSubscription()" style="background: #ff9800;">Clear Subscription</button>
-  </div>
-  
-  <div id="chrome-instructions" class="banner chrome-banner" style="display: none;">
-    <h3>🚀 For Firebase Cloud Messaging (FCM):</h3>
-    <p>Use <strong>Google Chrome</strong> for proper FCM support:</p>
-    <ol>
-      <li>Open this page in <strong>Google Chrome</strong></li>
-      <li>Click "Test in Current Browser"</li>
-      <li>You'll get a proper FCM token for Firebase</li>
-    </ol>
-  </div>
-  
-  <div id="edge-instructions" class="banner edge-banner" style="display: none;">
-    <h3>ℹ️ Microsoft Edge Information:</h3>
-    <p>Edge uses Windows Notification Service (WNS), not Firebase Cloud Messaging.</p>
-    <p><strong>To use Firebase with Edge:</strong></p>
-    <ol>
-      <li>Users must install your app as a PWA</li>
-      <li>Use Firebase SDK's <code>getToken()</code> method</li>
-      <li>Firebase will handle WNS internally</li>
-    </ol>
-  </div>
-  
-  <div id="result"></div>
   
   <script>
-    // Detect browser on load
-    function detectBrowserAndService() {
-      const userAgent = navigator.userAgent;
-      let browser = 'Unknown';
-      let pushService = 'Unknown';
-      let isChrome = false;
-      let isEdge = false;
-      let isFirefox = false;
-      let isSafari = false;
-      
-      if (userAgent.includes('Edg')) {
-        browser = 'Microsoft Edge';
-        pushService = 'WNS (Windows Notification Service)';
-        isEdge = true;
-      } else if (userAgent.includes('Chrome')) {
-        browser = 'Google Chrome';
-        pushService = 'FCM (Firebase Cloud Messaging)';
-        isChrome = true;
-      } else if (userAgent.includes('Firefox')) {
-        browser = 'Mozilla Firefox';
-        pushService = 'Firefox Push Service';
-        isFirefox = true;
-      } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
-        browser = 'Apple Safari';
-        pushService = 'APNs (Apple Push Notification Service)';
-        isSafari = true;
-      }
-      
-      const banner = document.getElementById('browser-banner');
-      const browserName = document.getElementById('browser-name');
-      const pushServiceSpan = document.getElementById('push-service');
-      
-      browserName.textContent = `Browser: ${browser}`;
-      pushServiceSpan.textContent = `Push Service: ${pushService}`;
-      
-      // Show appropriate instructions
-      if (isChrome) {
-        document.getElementById('chrome-instructions').style.display = 'block';
-        banner.className = 'banner chrome-banner';
-      } else if (isEdge) {
-        document.getElementById('edge-instructions').style.display = 'block';
-        banner.className = 'banner edge-banner';
-      }
-      
-      return { browser, pushService, isChrome, isEdge, isFirefox, isSafari };
-    }
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
+      authDomain: "gpms-notifications.firebaseapp.com",
+      projectId: "gpms-notifications",
+      storageBucket: "gpms-notifications.firebasestorage.app",
+      messagingSenderId: "240580625031",
+      appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
+      measurementId: "G-D41F7DQVLP"
+    };
     
-    async function testCurrentBrowser() {
-      const resultDiv = document.getElementById('result');
-      const detection = detectBrowserAndService();
+    // Supabase config
+    const SUPABASE_URL = 'https://sudsanzsdppdjcsvsukf.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo';
+    
+    let supabase;
+    let currentUser = { id: 'test-user' }; // Mock user for testing
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      // Detect browser
+      const userAgent = navigator.userAgent;
+      const isEdge = userAgent.includes('Edg');
+      const isChrome = userAgent.includes('Chrome') && !isEdge;
       
-      resultDiv.innerHTML = `<span class="info">Testing in ${detection.browser}...</span>\n\n`;
+      const browserInfo = document.getElementById('browser-info');
+      if (isChrome) {
+        browserInfo.innerHTML = '<strong>Browser:</strong> Google Chrome (FCM compatible)';
+        browserInfo.style.background = '#e8f5e8';
+      } else if (isEdge) {
+        browserInfo.innerHTML = '<strong>Browser:</strong> Microsoft Edge (WNS via Firebase)';
+        browserInfo.style.background = '#f3e5f5';
+      }
+      
+      // Initialize Firebase
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      
+      // Initialize Supabase (mock for testing)
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    });
+    
+    async function testChromeMethod() {
+      const result = document.getElementById('result');
+      result.innerHTML = '<span class="info">Testing Chrome method...</span>\n';
       
       try {
-        // Step 1: Service Worker
-        resultDiv.innerHTML += '1. Setting up service worker...\n';
+        const token = await getManualFCMToken();
+        result.innerHTML += `<span class="success">✅ Chrome FCM Token:</span>\n${token}\n`;
+        
+        // Simulate saving to Supabase
+        localStorage.setItem('fcm_token', token);
+        
+      } catch (err) {
+        result.innerHTML += `<span class="error">❌ Error: ${err.message}</span>\n`;
+      }
+    }
+    
+    async function testEdgeMethod() {
+      const result = document.getElementById('result');
+      result.innerHTML = '<span class="info">Testing Edge method...</span>\n';
+      
+      try {
+        // Edge should use Firebase SDK
+        const messaging = firebase.messaging();
+        
+        // Register service worker
         const registration = await navigator.serviceWorker.register(
           '/gpms/firebase-messaging-sw.js',
           { scope: '/gpms/' }
         );
-        resultDiv.innerHTML += '<span class="success">✓ Service worker ready</span>\n';
         
-        // Step 2: Permission
-        resultDiv.innerHTML += '2. Checking notification permission...\n';
-        const permission = await Notification.requestPermission();
-        resultDiv.innerHTML += `Permission: ${permission}\n`;
+        // Get permission
+        await Notification.requestPermission();
         
-        if (permission !== 'granted') {
-          resultDiv.innerHTML += '<span class="error">✗ Permission denied</span>\n';
-          return;
-        }
-        resultDiv.innerHTML += '<span class="success">✓ Permission granted</span>\n';
+        // Get token via Firebase SDK
+        const token = await messaging.getToken({
+          vapidKey: 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq',
+          serviceWorkerRegistration: registration
+        });
         
-        // Step 3: Try Firebase SDK if available
-        if (typeof firebase !== 'undefined' && detection.isChrome) {
-          resultDiv.innerHTML += '3. Trying Firebase SDK (Chrome only)...\n';
-          try {
-            const messaging = firebase.messaging();
-            const token = await messaging.getToken({
-              vapidKey: 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq',
-              serviceWorkerRegistration: registration
-            });
-            
-            if (token) {
-              resultDiv.innerHTML += '<span class="success">✅ FCM TOKEN VIA FIREBASE SDK:</span>\n';
-              resultDiv.innerHTML += `${token}\n\n`;
-              saveToken(token, 'firebase_sdk');
-              return;
-            }
-          } catch (firebaseError) {
-            resultDiv.innerHTML += `<span class="warning">Firebase SDK error: ${firebaseError.message}</span>\n`;
-          }
-        }
-        
-        // Step 4: Manual subscription
-        resultDiv.innerHTML += '4. Creating manual push subscription...\n';
-        
-        const vapidKey = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq';
-        const applicationServerKey = urlBase64ToUint8Array(vapidKey);
-        
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: applicationServerKey
-          });
-        }
-        
-        const subscriptionJSON = subscription.toJSON();
-        resultDiv.innerHTML += '<span class="success">✓ Push subscription obtained</span>\n\n';
-        
-        // Analyze endpoint
-        resultDiv.innerHTML += '=== ENDPOINT ANALYSIS ===\n';
-        resultDiv.innerHTML += `URL: ${subscriptionJSON.endpoint}\n`;
-        
-        if (subscriptionJSON.endpoint.includes('fcm.googleapis.com')) {
-          const fcmToken = subscriptionJSON.endpoint.split('/').pop();
-          resultDiv.innerHTML += '<span class="success">✅ FCM ENDPOINT DETECTED</span>\n';
-          resultDiv.innerHTML += `FCM Token: ${fcmToken}\n`;
-          saveToken(fcmToken, 'manual_fcm');
-          
-        } else if (subscriptionJSON.endpoint.includes('wns2-')) {
-          resultDiv.innerHTML += '<span class="warning">⚠️ WNS ENDPOINT (Microsoft Edge)</span>\n';
-          resultDiv.innerHTML += 'Edge uses Windows Notification Service.\n';
-          resultDiv.innerHTML += 'For Firebase support in Edge:\n';
-          resultDiv.innerHTML += '1. Install as PWA\n';
-          resultDiv.innerHTML += '2. Use Firebase SDK getToken()\n';
-          
-        } else {
-          resultDiv.innerHTML += `<span class="info">ℹ️ Browser-native push endpoint</span>\n`;
-          resultDiv.innerHTML += `Auth: ${subscriptionJSON.keys?.auth || 'N/A'}\n`;
-          resultDiv.innerHTML += `p256dh: ${subscriptionJSON.keys?.p256dh || 'N/A'}\n`;
-        }
+        result.innerHTML += `<span class="success">✅ Edge Token (via Firebase SDK):</span>\n${token}\n`;
         
       } catch (err) {
-        console.error('Test error:', err);
-        resultDiv.innerHTML += `<span class="error">✗ Error: ${err.message}</span>\n`;
+        result.innerHTML += `<span class="error">❌ Firebase SDK Error: ${err.message}</span>\n`;
+        result.innerHTML += '<span class="info">Trying manual method as fallback...</span>\n';
+        
+        // Fallback to manual method
+        try {
+          const manualToken = await getManualFCMToken();
+          result.innerHTML += `<span class="success">✅ Fallback Token:</span>\n${manualToken}\n`;
+        } catch (manualErr) {
+          result.innerHTML += `<span class="error">❌ Manual method also failed: ${manualErr.message}</span>\n`;
+        }
       }
     }
     
-    function testInChrome() {
-      const resultDiv = document.getElementById('result');
-      resultDiv.innerHTML = '<span class="info">For FCM testing:</span>\n\n';
-      resultDiv.innerHTML += '1. Open <strong>Google Chrome</strong>\n';
-      resultDiv.innerHTML += '2. Navigate to this same URL\n';
-      resultDiv.innerHTML += '3. Click "Test in Current Browser"\n';
-      resultDiv.innerHTML += '\n<span class="success">Chrome will give you proper FCM tokens that work with Firebase.</span>\n';
-    }
-    
-    async function clearSubscription() {
+    async function testUniversalMethod() {
+      const result = document.getElementById('result');
+      result.innerHTML = '<span class="info">Testing universal method (works in all browsers)...</span>\n';
+      
       try {
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
+        const token = await getManualFCMToken();
+        result.innerHTML += `<span class="success">✅ Universal Token:</span>\n${token}\n`;
         
-        if (subscription) {
-          await subscription.unsubscribe();
-          console.log('Subscription cleared');
-          alert('Push subscription cleared successfully!');
-        } else {
-          alert('No active subscription found.');
+        // Analyze token type
+        if (token.includes('fcm.googleapis.com')) {
+          result.innerHTML += '<span class="success">Token Type: FCM (Chrome/Firefox)</span>\n';
+        } else if (token.includes('wns2-')) {
+          result.innerHTML += '<span class="info">Token Type: WNS (Microsoft Edge)</span>\n';
         }
+        
       } catch (err) {
-        console.error('Clear error:', err);
-        alert('Error clearing subscription: ' + err.message);
+        result.innerHTML += `<span class="error">❌ Error: ${err.message}</span>\n`;
       }
+    }
+    
+    async function getManualFCMToken() {
+      // Register service worker
+      const registration = await navigator.serviceWorker.register(
+        '/gpms/firebase-messaging-sw.js',
+        { scope: '/gpms/' }
+      );
+      
+      // Request permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        throw new Error('Notification permission denied');
+      }
+      
+      // Create subscription
+      const vapidKey = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq';
+      const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+      
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey
+        });
+      }
+      
+      const subscriptionJSON = subscription.toJSON();
+      return subscriptionJSON.endpoint;
     }
     
     function urlBase64ToUint8Array(base64String) {
@@ -259,69 +217,6 @@
         outputArray[i] = rawData.charCodeAt(i);
       }
       return outputArray;
-    }
-    
-    function saveToken(token, source) {
-      // Save to localStorage for testing
-      localStorage.setItem('last_fcm_token', token);
-      localStorage.setItem('token_source', source);
-      localStorage.setItem('token_timestamp', new Date().toISOString());
-      
-      // Copy to clipboard
-      navigator.clipboard.writeText(token).then(() => {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML += '\n<span class="success">✓ Token copied to clipboard!</span>\n';
-      });
-    }
-    
-    // Initialize
-    window.addEventListener('load', () => {
-      detectBrowserAndService();
-      
-      // Check for existing token
-      const lastToken = localStorage.getItem('last_fcm_token');
-      if (lastToken) {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = `<span class="info">Last saved token:</span>\n`;
-        resultDiv.innerHTML += `${lastToken}\n\n`;
-        resultDiv.innerHTML += `<span class="info">Source: ${localStorage.getItem('token_source')}</span>\n`;
-        resultDiv.innerHTML += `<span class="info">Time: ${new Date(localStorage.getItem('token_timestamp')).toLocaleString()}</span>\n`;
-      }
-    });
-  </script>
-  
-  <!-- Load Firebase only for Chrome testing -->
-  <script>
-    // Only load Firebase if in Chrome (for FCM testing)
-    const userAgent = navigator.userAgent;
-    if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
-      const firebaseScript = document.createElement('script');
-      firebaseScript.src = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js';
-      document.head.appendChild(firebaseScript);
-      
-      firebaseScript.onload = () => {
-        const messagingScript = document.createElement('script');
-        messagingScript.src = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js';
-        document.head.appendChild(messagingScript);
-        
-        messagingScript.onload = () => {
-          // Initialize Firebase
-          const firebaseConfig = {
-            apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
-            authDomain: "gpms-notifications.firebaseapp.com",
-            projectId: "gpms-notifications",
-            storageBucket: "gpms-notifications.firebasestorage.app",
-            messagingSenderId: "240580625031",
-            appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
-            measurementId: "G-D41F7DQVLP"
-          };
-          
-          if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-            console.log('Firebase loaded for Chrome FCM testing');
-          }
-        };
-      };
     }
   </script>
 </body>
