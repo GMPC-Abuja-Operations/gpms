@@ -1,30 +1,101 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-messaging-compat.js"></script>
+  <title>FCM Test - Matching v10.14.1</title>
+  <!-- Match your service worker version -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 </head>
 <body>
-  <button onclick="testFCM()">Test FCM</button>
+  <h2>FCM Test - v10.14.1</h2>
+  <button onclick="testFCM()">Test Firebase Messaging</button>
+  <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+  
   <script>
-    const firebaseConfig = { /* your config */ };
-    firebase.initializeApp(firebaseConfig);
+    // Firebase config - make sure projectId is correct
+    const firebaseConfig = {
+      apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
+      authDomain: "gpms-notifications.firebaseapp.com",
+      projectId: "gpms-notifications",
+      storageBucket: "gpms-notifications.firebasestorage.app", 
+      messagingSenderId: "240580625031",
+      appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
+      measurementId: "G-D41F7DQVLP"
+    };
+    
+    console.log('Firebase v10.14.1 - Config:', firebaseConfig);
+    
+    // Initialize Firebase
+    try {
+      if (firebase.apps.length === 0) {
+        firebase.initializeApp(firebaseConfig);
+        console.log('Firebase v10.14.1 initialized');
+      }
+    } catch (err) {
+      console.error('Firebase init error:', err);
+    }
     
     async function testFCM() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = 'Testing FCM v10.14.1...';
+      
       try {
+        // Check Firebase
+        console.log('Firebase app:', firebase.app().name);
+        console.log('Firebase version:', firebase.SDK_VERSION);
+        
+        // Request permission
         const permission = await Notification.requestPermission();
         console.log('Permission:', permission);
+        resultDiv.innerHTML += `<br>Permission: ${permission}`;
         
+        if (permission !== 'granted') {
+          resultDiv.innerHTML += '<br><span style="color: orange;">Permission not granted - notifications disabled</span>';
+          return;
+        }
+        
+        // Get messaging instance
         const messaging = firebase.messaging();
+        console.log('Messaging API available:', !!messaging);
+        
+        // Get token
+        const vapidKey = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq';
+        
+        console.log('Requesting token with VAPID key...');
         const token = await messaging.getToken({ 
-          vapidKey: 'your-vapid-key' 
+          vapidKey: vapidKey 
         });
         
-        console.log('Token:', token);
-        alert('Token: ' + token);
+        console.log('Token received:', token ? 'YES' : 'NO');
+        
+        if (token) {
+          resultDiv.innerHTML += `<br><span style="color: green; font-weight: bold;">✓ SUCCESS! FCM Token generated</span>`;
+          resultDiv.innerHTML += `<br><small style="word-break: break-all; background: #f5f5f5; padding: 5px; display: block;">${token}</small>`;
+          
+          // Verify token looks correct
+          if (token.length > 100) {
+            resultDiv.innerHTML += `<br><span style="color: green;">✓ Token looks valid (${token.length} chars)</span>`;
+          }
+        } else {
+          resultDiv.innerHTML += '<br><span style="color: red;">✗ No token generated</span>';
+        }
+        
       } catch (err) {
-        console.error('Error:', err);
-        alert('Error: ' + err.message);
+        console.error('FCM Error:', err);
+        console.error('Error details:', {
+          name: err.name,
+          code: err.code,
+          message: err.message,
+          stack: err.stack
+        });
+        
+        resultDiv.innerHTML = `<span style="color: red;">ERROR: ${err.name} - ${err.message}</span>`;
+        
+        // Check for specific Firebase errors
+        if (err.code === 'messaging/failed-service-worker-registration') {
+          resultDiv.innerHTML += '<br><br><span style="color: red;">Service Worker Issue!</span>';
+          resultDiv.innerHTML += '<br>Check that firebase-messaging-sw.js exists and uses v10.14.1';
+        }
       }
     }
   </script>
