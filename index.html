@@ -715,8 +715,7 @@
          ONE SIGNAL INITIALIZATION
     ============================================ -->
     <script>
-        // Initialize OneSignal when page loads
-        // OneSignal - Deferred + proper permission handling
+// OneSignal - Deferred + proper permission handling
 document.addEventListener('DOMContentLoaded', () => {
   window.OneSignalDeferred = window.OneSignalDeferred || [];
 
@@ -762,13 +761,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Your existing initializeApp()
   initializeApp();
+
+  // Request browser notification permission (moved inside the listener)
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
 });
-            
-            // Request browser notification permission
-            if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
-        });
         
         function initializeApp() {
             // Set minimum dates
