@@ -1,9 +1,8 @@
-// firebase-messaging-sw.js - Service Worker for FCM background messages
-
+// firebase-messaging-sw.js
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
 
-// Your Firebase config (copy from Firebase Console → Project Settings → General → Your apps → Web → Config)
+// Initialize Firebase
 firebase.initializeApp({
   apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
   authDomain: "gpms-notifications.firebaseapp.com",
@@ -16,64 +15,80 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages (when app is closed/background)
-messaging.onBackgroundMessage(function(payload) {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
-  // Use notification payload if present, fallback to data
-  const notification = payload.notification || {};
-  const data = payload.data || {};
-
-  const title = notification.title || data.title || 'GPMS Notification';
-  const options = {
-    body: notification.body || data.body || data.message || 'You have a new update in GPMS.',
-    icon: '/Picture1.png',               // Root-relative path to your logo
-    badge: '/Picture1.png',              // Optional badge
-    tag: data.notificationId || 'gpms-notification', // Prevent duplicates
-    renotify: true,                      // Replace existing notification with same tag
-    data: {
-      url: data.url || '/gpms/',         // Fallback to app root
-      taskId: data.taskId,
-      notificationId: data.notificationId
-    },
-    actions: [
-      { action: 'approve', title: 'Approve' },
-      { action: 'comment', title: 'Comment' }
-    ]
+// Handle background messages from Firebase
+messaging.onBackgroundMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] Firebase background message:', payload);
+  
+  const notificationTitle = payload.notification?.title || 'GPMS Notification';
+  const notificationOptions = {
+    body: payload.notification?.body || 'You have a new notification',
+    icon: '/gpms/Picture1.png',
+    badge: '/gpms/Picture1.png',
+    data: payload.data || {},
+    tag: 'gpms-notification'
   };
 
-  // Make sure notification shows even if promise rejects
-  return self.registration.showNotification(title, options);
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle notification click (open app or deep link)
-self.addEventListener('notificationclick', function(event) {
-  event.notification.close();
-
-  const action = event.action;
-  const data = event.notification.data || {};
-
-  let targetUrl = data.url || '/gpms/';  // Root of your app
-
-  // Optional: Add deep linking based on action
-  if (action === 'approve' && data.taskId) {
-    targetUrl += `?action=approve&taskId=${encodeURIComponent(data.taskId)}&notificationId=${encodeURIComponent(data.notificationId || '')}`;
-  } else if (action === 'comment' && data.taskId) {
-    targetUrl += `?action=comment&taskId=${encodeURIComponent(data.taskId)}&notificationId=${encodeURIComponent(data.notificationId || '')}`;
+// Handle all push notifications
+self.addEventListener('push', (event) => {
+  console.log('[Service Worker] Push event received:', event);
+  
+  let data = {};
+  
+  try {
+    if (event.data) {
+      data = event.data.json();
+      console.log('Push data (JSON):', data);
+    }
+  } catch (err) {
+    // If not JSON, try text
+    console.log('Push data (text):', event.data?.text());
+    data = {
+      title: 'GPMS Notification',
+      body: event.data ? event.data.text() : 'New notification',
+      icon: '/gpms/Picture1.png'
+    };
   }
-
-  // Focus existing tab or open new one
+  
+  const options = {
+    body: data.body || 'You have a new notification',
+    icon: data.icon || '/gpms/Picture1.png',
+    badge: '/gpms/Picture1.png',
+    data: data.data || {},
+    tag: data.tag || 'gpms-notification',
+    timestamp: data.timestamp || Date.now()
+  };
+  
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then(clientList => {
-        for (const client of clientList) {
-          if (client.url === targetUrl && 'focus' in client) {
-            return client.focus();
-          }
+    self.registration.showNotification(
+      data.title || 'GPMS Notification',
+      options
+    )
+  );
+});
+
+// Handle notification click
+self.addEventListener('notificationclick', (event) => {
+  console.log('[Service Worker] Notification click received:', event);
+  
+  event.notification.close();
+  
+  const urlToOpen = event.notification.data?.url || 
+                   'https://gmpc-abuja-operations.github.io/gpms/';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
         }
-        if (clients.openWindow) {
-          return clients.openWindow(targetUrl);
-        }
-      })
+      }
+      
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
   );
 });
