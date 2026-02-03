@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>FCM Test - Manual Push Subscription (Workaround)</title>
+  <title>FCM Test - Browser Detection</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     #result { 
@@ -27,32 +27,62 @@
     .success { color: green; font-weight: bold; }
     .error { color: red; }
     .info { color: blue; }
+    .warning { color: orange; }
   </style>
 </head>
 <body>
-  <h2>FCM Manual Push Subscription Test</h2>
-  <p>This bypasses Firebase SDK authentication issues and gets the push subscription directly.</p>
+  <h2>Push Notification Test - Multi-Browser Support</h2>
   
-  <button onclick="testManualPush()">Test Manual Push Subscription</button>
-  <button onclick="copyToClipboard()" style="background: #008CBA; margin-left: 10px;">Copy Token to Clipboard</button>
+  <div id="browser-info" style="margin-bottom: 20px; padding: 10px; background: #e3f2fd; border-radius: 4px;"></div>
+  
+  <button onclick="testPushSubscription()">Test Push Subscription</button>
+  <button onclick="detectBrowser()" style="background: #ff9800; margin-left: 10px;">Detect Browser</button>
   
   <div id="result"></div>
   
   <script>
-    let currentToken = '';
+    function detectBrowser() {
+      const browserInfo = document.getElementById('browser-info');
+      const userAgent = navigator.userAgent;
+      let browser = 'Unknown';
+      let pushService = 'Unknown';
+      
+      if (userAgent.includes('Edg')) {
+        browser = 'Microsoft Edge';
+        pushService = 'WNS (Windows Notification Service)';
+      } else if (userAgent.includes('Chrome')) {
+        browser = 'Google Chrome';
+        pushService = 'FCM (Firebase Cloud Messaging)';
+      } else if (userAgent.includes('Firefox')) {
+        browser = 'Mozilla Firefox';
+        pushService = 'Firefox Push Service';
+      } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+        browser = 'Apple Safari';
+        pushService = 'APNs (Apple Push Notification Service)';
+      }
+      
+      browserInfo.innerHTML = `
+        <strong>Browser:</strong> ${browser}<br>
+        <strong>Push Service:</strong> ${pushService}<br>
+        <strong>User Agent:</strong> ${userAgent}
+      `;
+      
+      console.log('Browser:', browser);
+      console.log('Push Service:', pushService);
+      
+      return { browser, pushService };
+    }
     
-    async function testManualPush() {
+    async function testPushSubscription() {
       const resultDiv = document.getElementById('result');
-      resultDiv.innerHTML = '<span class="info">Starting manual push subscription...</span>\n';
+      resultDiv.innerHTML = '';
+      
+      const { browser, pushService } = detectBrowser();
+      
+      resultDiv.innerHTML += `<span class="info">Detected: ${browser} (${pushService})</span>\n\n`;
       
       try {
-        // Step 1: Check service worker support
-        if (!('serviceWorker' in navigator)) {
-          resultDiv.innerHTML += '<span class="error">✗ Service workers not supported</span>\n';
-          return;
-        }
-        
-        // Step 2: Register service worker
+        // Step 1: Register service worker
         resultDiv.innerHTML += '1. Registering service worker...\n';
         
         const registration = await navigator.serviceWorker.register(
@@ -61,224 +91,133 @@
         );
         
         resultDiv.innerHTML += '<span class="success">✓ Service worker registered</span>\n';
-        console.log('Service worker scope:', registration.scope);
         
-        // Wait for service worker to be active
-        if (registration.installing) {
-          await new Promise(resolve => {
-            registration.installing.addEventListener('statechange', (e) => {
-              if (e.target.state === 'activated') {
-                resolve();
-              }
-            });
-          });
-        }
-        
-        // Step 3: Request notification permission
+        // Step 2: Request permission
         resultDiv.innerHTML += '2. Requesting notification permission...\n';
         const permission = await Notification.requestPermission();
-        resultDiv.innerHTML += `Permission status: ${permission}\n`;
+        resultDiv.innerHTML += `Permission: ${permission}\n`;
         
         if (permission !== 'granted') {
-          resultDiv.innerHTML += '<span class="error">✗ Notification permission denied</span>\n';
+          resultDiv.innerHTML += '<span class="error">✗ Permission denied</span>\n';
           return;
         }
         
         resultDiv.innerHTML += '<span class="success">✓ Permission granted</span>\n';
         
-        // Step 4: Convert VAPID key to Uint8Array
-        resultDiv.innerHTML += '3. Converting VAPID key...\n';
+        // Step 3: Get existing subscription
+        resultDiv.innerHTML += '3. Checking existing subscription...\n';
+        let subscription = await registration.pushManager.getSubscription();
         
-        const vapidKey = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq';
-        
-        function urlBase64ToUint8Array(base64String) {
-          const padding = '='.repeat((4 - base64String.length % 4) % 4);
-          const base64 = (base64String + padding)
-            .replace(/-/g, '+')
-            .replace(/_/g, '/');
-          const rawData = window.atob(base64);
-          const outputArray = new Uint8Array(rawData.length);
-          for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-          }
-          return outputArray;
+        if (subscription) {
+          resultDiv.innerHTML += '<span class="info">✓ Already subscribed</span>\n';
+        } else {
+          // Step 4: Create new subscription
+          resultDiv.innerHTML += '4. Creating new subscription...\n';
+          
+          const vapidKey = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq';
+          const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+          
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey
+          });
+          
+          resultDiv.innerHTML += '<span class="success">✓ Push subscription created</span>\n';
         }
         
-        const applicationServerKey = urlBase64ToUint8Array(vapidKey);
-        resultDiv.innerHTML += '<span class="success">✓ VAPID key converted</span>\n';
-        
-        // Step 5: Subscribe to push notifications
-        resultDiv.innerHTML += '4. Subscribing to push notifications...\n';
-        
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: applicationServerKey
-        });
-        
-        resultDiv.innerHTML += '<span class="success">✓ Push subscription successful!</span>\n';
-        
-        // Step 6: Convert subscription to JSON
+        // Step 5: Analyze subscription
         const subscriptionJSON = subscription.toJSON();
+        resultDiv.innerHTML += '\n=== SUBSCRIPTION ANALYSIS ===\n';
         
-        // Extract FCM token from endpoint
-        // Format: https://fcm.googleapis.com/fcm/send/{FCM_TOKEN}
-        const endpoint = subscriptionJSON.endpoint;
-        const fcmToken = endpoint.split('/').pop();
+        resultDiv.innerHTML += `Endpoint: ${subscriptionJSON.endpoint}\n`;
         
-        currentToken = fcmToken;
-        
-        // Display results
-        resultDiv.innerHTML += '\n=== SUBSCRIPTION DETAILS ===\n';
-        resultDiv.innerHTML += `Endpoint: ${endpoint}\n`;
-        resultDiv.innerHTML += `FCM Token: ${fcmToken}\n`;
-        
-        if (subscriptionJSON.keys) {
-          resultDiv.innerHTML += `Auth: ${subscriptionJSON.keys.auth}\n`;
-          resultDiv.innerHTML += `P256dh: ${subscriptionJSON.keys.p256dh}\n`;
+        // Check endpoint type
+        if (subscriptionJSON.endpoint.includes('fcm.googleapis.com')) {
+          resultDiv.innerHTML += '<span class="success">✅ FCM ENDPOINT DETECTED</span>\n';
+          const fcmToken = subscriptionJSON.endpoint.split('/').pop();
+          resultDiv.innerHTML += `FCM Token: ${fcmToken}\n`;
+          
+          // Test FCM notification
+          await testFCMNotification(fcmToken, resultDiv);
+          
+        } else if (subscriptionJSON.endpoint.includes('wns2-')) {
+          resultDiv.innerHTML += '<span class="warning">⚠️ WNS ENDPOINT DETECTED (Microsoft Edge)</span>\n';
+          resultDiv.innerHTML += 'To send notifications via WNS, you need:\n';
+          resultDiv.innerHTML += '1. Windows developer account\n';
+          resultDiv.innerHTML += '2. WNS credentials from Microsoft\n';
+          resultDiv.innerHTML += '3. Server-side WNS integration\n';
+          
+        } else if (subscriptionJSON.endpoint.includes('updates.push.services.mozilla.com')) {
+          resultDiv.innerHTML += '<span class="info">ℹ️ FIREFOX PUSH ENDPOINT DETECTED</span>\n';
+          
+        } else {
+          resultDiv.innerHTML += `<span class="info">ℹ️ UNKNOWN ENDPOINT TYPE: ${subscriptionJSON.endpoint}</span>\n`;
         }
         
-        resultDiv.innerHTML += '\n<span class="success">✅ MANUAL PUSH SUBSCRIPTION COMPLETE!</span>\n';
-        resultDiv.innerHTML += 'You can now use this FCM token with any push service.\n';
-        
-        // Save to localStorage for testing
-        localStorage.setItem('fcm_push_subscription', JSON.stringify(subscriptionJSON));
-        console.log('Subscription saved to localStorage');
-        
-        // Step 7: Test sending a notification (optional)
-        resultDiv.innerHTML += '\n5. Testing notification...\n';
-        await testNotification(fcmToken);
+        // Save subscription data
+        localStorage.setItem('push_subscription', JSON.stringify(subscriptionJSON));
         
       } catch (err) {
-        console.error('Manual push error:', err);
+        console.error('Error:', err);
         resultDiv.innerHTML += `<span class="error">✗ Error: ${err.message}</span>\n`;
-        
-        if (err.name === 'NotAllowedError') {
-          resultDiv.innerHTML += '<span class="error">Notification permission was denied</span>\n';
-        } else if (err.name === 'InvalidStateError') {
-          resultDiv.innerHTML += '<span class="error">Already subscribed to push notifications</span>\n';
-        }
       }
     }
     
-    async function testNotification(fcmToken) {
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+    
+    async function testFCMNotification(fcmToken, resultDiv) {
+      resultDiv.innerHTML += '\n=== FCM TEST ===\n';
+      
+      // For security reasons, we can't send actual notifications from browser
+      // This would be done server-side
+      resultDiv.innerHTML += 'Server-side code to send notification:\n\n';
+      
+      resultDiv.innerHTML += `// Node.js example
+const admin = require('firebase-admin');
+
+admin.initializeApp({
+  credential: admin.credential.applicationDefault(),
+  projectId: 'gpms-notifications'
+});
+
+const message = {
+  token: '${fcmToken}',
+  notification: {
+    title: 'Test from GPMS',
+    body: 'This is a test notification'
+  }
+};
+
+admin.messaging().send(message)
+  .then(response => {
+    console.log('Success:', response);
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });\n\n`;
+      
+      resultDiv.innerHTML += '<span class="success">✓ FCM integration code generated</span>\n';
+    }
+    
+    // Auto-detect on page load
+    window.addEventListener('load', () => {
+      detectBrowser();
+      
       const resultDiv = document.getElementById('result');
-      
-      try {
-        // This would normally be done server-side
-        // For testing, we'll just show what the server would send
-        resultDiv.innerHTML += 'To send a test notification, use this curl command:\n\n';
-        resultDiv.innerHTML += `curl -X POST \\
-  -H "Authorization: key=AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "to": "${fcmToken}",
-    "notification": {
-      "title": "Test Notification",
-      "body": "This is a test from GPMS",
-      "icon": "/gpms/Picture1.png"
-    }
-  }' \\
-  https://fcm.googleapis.com/fcm/send\n\n`;
-        
-        resultDiv.innerHTML += '<span class="success">✓ Test command generated</span>\n';
-        
-      } catch (err) {
-        resultDiv.innerHTML += `<span class="error">Notification test error: ${err.message}</span>\n`;
-      }
-    }
-    
-    function copyToClipboard() {
-      if (!currentToken) {
-        alert('No token available. Run the test first.');
-        return;
-      }
-      
-      navigator.clipboard.writeText(currentToken).then(() => {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML += '\n<span class="success">✓ Token copied to clipboard!</span>\n';
-      }).catch(err => {
-        console.error('Copy failed:', err);
-        alert('Copy failed: ' + err.message);
-      });
-    }
-    
-    // Check existing subscription on page load
-    window.addEventListener('load', async () => {
-      const resultDiv = document.getElementById('result');
-      
-      try {
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          const subscription = await registration.pushManager.getSubscription();
-          
-          if (subscription) {
-            const subJSON = subscription.toJSON();
-            const fcmToken = subJSON.endpoint.split('/').pop();
-            currentToken = fcmToken;
-            
-            resultDiv.innerHTML = `<span class="info">Already subscribed to push notifications</span>\n`;
-            resultDiv.innerHTML += `FCM Token: ${fcmToken}\n\n`;
-            resultDiv.innerHTML += 'Click "Test Manual Push Subscription" to get a new token.\n';
-          } else {
-            resultDiv.innerHTML = '<span class="info">Not subscribed to push notifications yet.</span>\n';
-            resultDiv.innerHTML += 'Click "Test Manual Push Subscription" to get started.\n';
-          }
-        }
-      } catch (err) {
-        console.log('No existing subscription:', err.message);
-      }
+      resultDiv.innerHTML = '<span class="info">Page loaded. Click "Test Push Subscription" to begin.</span>\n';
+      resultDiv.innerHTML += '<span class="warning">Note: For FCM tokens, use Chrome or Firefox browser.</span>\n';
     });
-    
-    // Also test with Firebase SDK to compare
-    async function testWithFirebaseSDK() {
-      const resultDiv = document.getElementById('result');
-      resultDiv.innerHTML = 'Testing with Firebase SDK...\n';
-      
-      try {
-        // Load Firebase SDK dynamically
-        if (typeof firebase === 'undefined') {
-          const script = document.createElement('script');
-          script.src = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js';
-          document.head.appendChild(script);
-          
-          await new Promise(resolve => {
-            script.onload = resolve;
-          });
-          
-          const script2 = document.createElement('script');
-          script2.src = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js';
-          document.head.appendChild(script2);
-          
-          await new Promise(resolve => {
-            script2.onload = resolve;
-          });
-        }
-        
-        const firebaseConfig = {
-          apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
-          authDomain: "gpms-notifications.firebaseapp.com",
-          projectId: "gpms-notifications",
-          storageBucket: "gpms-notifications.firebasestorage.app",
-          messagingSenderId: "240580625031",
-          appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
-          measurementId: "G-D41F7DQVLP"
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const messaging = firebase.messaging();
-        
-        resultDiv.innerHTML += 'Firebase SDK initialized\n';
-        
-      } catch (err) {
-        resultDiv.innerHTML += `<span class="error">Firebase SDK test error: ${err.message}</span>\n`;
-      }
-    }
   </script>
-  
-  <!-- Optional: Include this to test Firebase SDK side-by-side -->
-  <!-- 
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
-  -->
 </body>
 </html>
