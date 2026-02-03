@@ -1,9 +1,9 @@
-// firebase-messaging-sw.js - Classic script style (no modules)
+// firebase-messaging-sw.js - Service Worker for FCM background messages
 
-self.importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
-self.importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
 
-// Use compat version to avoid module evaluation problems
+// Your Firebase config (copy from Firebase Console → Project Settings → General → Your apps → Web → Config)
 firebase.initializeApp({
   apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
   authDomain: "gpms-notifications.firebaseapp.com",
@@ -16,17 +16,25 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Background message handler
+// Handle background messages (when app is closed/background)
 messaging.onBackgroundMessage(function(payload) {
-  console.log('[firebase-messaging-sw.js] Received background message: ', payload);
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
-  const notificationTitle = payload.notification?.title || 'GPMS Notification';
-  const notificationOptions = {
-    body: payload.notification?.body || 'You have a new notification in GPMS.',
-    icon: '/gpms/Picture1.png',  // Adjust path to match your subfolder
+  // Use notification payload if present, fallback to data
+  const notification = payload.notification || {};
+  const data = payload.data || {};
+
+  const title = notification.title || data.title || 'GPMS Notification';
+  const options = {
+    body: notification.body || data.body || data.message || 'You have a new update in GPMS.',
+    icon: '/Picture1.png',               // Root-relative path to your logo
+    badge: '/Picture1.png',              // Optional badge
+    tag: data.notificationId || 'gpms-notification', // Prevent duplicates
+    renotify: true,                      // Replace existing notification with same tag
     data: {
-      taskId: payload.data?.taskId,
-      notificationId: payload.data?.notificationId
+      url: data.url || '/gpms/',         // Fallback to app root
+      taskId: data.taskId,
+      notificationId: data.notificationId
     },
     actions: [
       { action: 'approve', title: 'Approve' },
@@ -34,25 +42,38 @@ messaging.onBackgroundMessage(function(payload) {
     ]
   };
 
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  // Make sure notification shows even if promise rejects
+  return self.registration.showNotification(title, options);
 });
 
-// Notification click handler
+// Handle notification click (open app or deep link)
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
   const action = event.action;
   const data = event.notification.data || {};
 
-  let url = '/gpms/';  // Base path for your app
+  let targetUrl = data.url || '/gpms/';  // Root of your app
 
-  if (action === 'approve') {
-    url += `?action=approve&taskId=${encodeURIComponent(data.taskId || '')}&notificationId=${encodeURIComponent(data.notificationId || '')}`;
-  } else if (action === 'comment') {
-    url += `?action=comment&taskId=${encodeURIComponent(data.taskId || '')}&notificationId=${encodeURIComponent(data.notificationId || '')}`;
+  // Optional: Add deep linking based on action
+  if (action === 'approve' && data.taskId) {
+    targetUrl += `?action=approve&taskId=${encodeURIComponent(data.taskId)}&notificationId=${encodeURIComponent(data.notificationId || '')}`;
+  } else if (action === 'comment' && data.taskId) {
+    targetUrl += `?action=comment&taskId=${encodeURIComponent(data.taskId)}&notificationId=${encodeURIComponent(data.notificationId || '')}`;
   }
 
+  // Focus existing tab or open new one
   event.waitUntil(
-    clients.openWindow(url)
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clientList => {
+        for (const client of clientList) {
+          if (client.url === targetUrl && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(targetUrl);
+        }
+      })
   );
 });
