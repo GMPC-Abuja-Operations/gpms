@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>FCM Test - Fixed Service Worker Path</title>
+  <title>FCM Test - Working Solution</title>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 </head>
 <body>
-  <h2>FCM Test - With Correct Service Worker Path</h2>
-  <button onclick="testFCM()">Test Firebase Messaging</button>
-  <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+  <h2>FCM Test - Final Solution</h2>
+  <button onclick="testFCM()">Get FCM Token</button>
+  <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; font-family: monospace; white-space: pre-wrap;"></div>
   
   <script>
     const firebaseConfig = {
@@ -21,13 +21,16 @@
       measurementId: "G-D41F7DQVLP"
     };
     
-    console.log('Firebase v10.14.1 - Config:', firebaseConfig);
-    
     // Initialize Firebase
+    let messaging = null;
+    
     try {
-      if (firebase.apps.length === 0) {
+      if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
         console.log('Firebase initialized');
+        messaging = firebase.messaging();
+      } else {
+        messaging = firebase.messaging();
       }
     } catch (err) {
       console.error('Firebase init error:', err);
@@ -35,91 +38,75 @@
     
     async function testFCM() {
       const resultDiv = document.getElementById('result');
-      resultDiv.innerHTML = 'Testing FCM with service worker...';
+      resultDiv.textContent = 'Starting FCM setup...\n';
       
       try {
-        // Step 1: Check service worker support
-        if (!('serviceWorker' in navigator)) {
-          throw new Error('Service workers not supported');
-        }
-        
-        // Step 2: Register service worker at correct path
-        resultDiv.innerHTML += '<br>1. Registering service worker...';
+        // Step 1: Register service worker
+        resultDiv.textContent += '1. Registering service worker...\n';
         const registration = await navigator.serviceWorker.register(
           '/gpms/firebase-messaging-sw.js',
-          {
-            scope: '/gpms/'
-          }
+          { scope: '/gpms/' }
         );
         
         console.log('Service worker registered:', registration);
-        resultDiv.innerHTML += '<br>✓ Service worker registered at: ' + registration.scope;
+        resultDiv.textContent += '✓ Service worker registered\n';
         
-        // Wait for service worker to be ready
-        if (registration.waiting) {
-          resultDiv.innerHTML += '<br>Service worker is waiting';
-        }
-        if (registration.active) {
-          resultDiv.innerHTML += '<br>✓ Service worker is active';
-        }
-        
-        // Step 3: Request notification permission
-        resultDiv.innerHTML += '<br>2. Requesting notification permission...';
+        // Step 2: Request permission
+        resultDiv.textContent += '2. Requesting notification permission...\n';
         const permission = await Notification.requestPermission();
-        resultDiv.innerHTML += '<br>Permission: ' + permission;
+        resultDiv.textContent += `✓ Permission: ${permission}\n`;
         
         if (permission !== 'granted') {
-          resultDiv.innerHTML += '<br><span style="color: orange;">Permission denied</span>';
+          resultDiv.textContent += '✗ Permission denied\n';
           return;
         }
         
-        // Step 4: Get messaging instance
-        const messaging = firebase.messaging();
+        // Step 3: Get FCM token
+        resultDiv.textContent += '3. Getting FCM token...\n';
         
-        // Step 5: Get FCM token with service worker registration
-        resultDiv.innerHTML += '<br>3. Getting FCM token...';
+        const vapidKey = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq';
+        
+        // IMPORTANT: Use the serviceWorkerRegistration option
         const token = await messaging.getToken({
-          vapidKey: 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq',
+          vapidKey: vapidKey,
           serviceWorkerRegistration: registration
         });
         
-        console.log('Token received:', token);
-        
         if (token) {
-          resultDiv.innerHTML += '<br><span style="color: green; font-weight: bold;">✓ SUCCESS! FCM Token generated</span>';
-          resultDiv.innerHTML += `<br><small style="word-break: break-all; background: #f5f5f5; padding: 5px; display: block;">${token}</small>`;
+          resultDiv.textContent += '✓ FCM TOKEN GENERATED!\n';
+          resultDiv.textContent += '========================\n';
+          resultDiv.textContent += token + '\n';
+          resultDiv.textContent += '========================\n';
+          
+          // Save to clipboard
+          navigator.clipboard.writeText(token).then(() => {
+            resultDiv.textContent += '✓ Copied to clipboard\n';
+          });
+          
+          console.log('FCM Token:', token);
+          
+          // Save to Supabase (your existing code)
+          if (typeof saveFCMTokenToSupabase === 'function') {
+            saveFCMTokenToSupabase(token);
+          }
+          
         } else {
-          resultDiv.innerHTML += '<br><span style="color: red;">✗ No token generated</span>';
+          resultDiv.textContent += '✗ No token received\n';
         }
         
       } catch (err) {
-        console.error('Error:', err);
-        resultDiv.innerHTML = `<span style="color: red;">ERROR: ${err.message}</span>`;
+        console.error('FCM Error:', err);
+        resultDiv.textContent += `\n✗ ERROR: ${err.message}\n`;
         
-        if (err.message.includes('404')) {
-          resultDiv.innerHTML += '<br><br><strong>Service worker file not found!</strong>';
-          resultDiv.innerHTML += '<br>Make sure firebase-messaging-sw.js exists at:';
-          resultDiv.innerHTML += '<br><code>/gpms/firebase-messaging-sw.js</code>';
-          resultDiv.innerHTML += '<br><br>Current URL: ' + window.location.href;
+        if (err.code === 'messaging/token-subscribe-failed') {
+          resultDiv.textContent += '\n=== ACTION REQUIRED ===\n';
+          resultDiv.textContent += '1. Go to: https://console.cloud.google.com/apis/library/firebasecloudmessaging.googleapis.com\n';
+          resultDiv.textContent += '2. Select project: gpms-notifications\n';
+          resultDiv.textContent += '3. Click ENABLE\n';
+          resultDiv.textContent += '4. Wait 2 minutes and try again\n';
         }
       }
     }
-    
-    // Quick check: verify service worker file exists
-    window.addEventListener('load', async () => {
-      try {
-        const response = await fetch('/gpms/firebase-messaging-sw.js');
-        console.log('Service worker file exists:', response.ok);
-        
-        if (!response.ok) {
-          console.error('Service worker file not found! Status:', response.status);
-          document.getElementById('result').innerHTML = 
-            '<span style="color: red;">ERROR: Service worker file not found at /gpms/firebase-messaging-sw.js</span>';
-        }
-      } catch (err) {
-        console.error('Cannot fetch service worker:', err);
-      }
-    });
   </script>
 </body>
 </html>
