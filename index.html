@@ -1033,28 +1033,31 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
         
         // Link OneSignal ID to user
         async function linkOneSignalToUser(userId) {
-  console.log("Linking OneSignal for user:", userId);
+  console.log("Attempting to link OneSignal for user:", userId);
 
-  // Classic SDK: getUserId uses a callback
-  const oneSignalUserId = await new Promise((resolve) => {
-    if (typeof OneSignal === 'undefined' || !OneSignal.getUserId) {
-      console.warn("OneSignal SDK not ready or missing getUserId method");
-      resolve(null);
+  // Wait for SDK to be ready
+  if (typeof OneSignal === 'undefined' || typeof OneSignal.getUserId !== 'function') {
+    console.warn("OneSignal SDK not ready — waiting 3 seconds...");
+    await new Promise(r => setTimeout(r, 3000));
+    if (typeof OneSignal === 'undefined' || typeof OneSignal.getUserId !== 'function') {
+      console.error("OneSignal still not ready — skipping link");
       return;
     }
+  }
 
+  const oneSignalUserId = await new Promise((resolve) => {
     let attempts = 0;
-    const maxAttempts = 20; // 10 seconds total
+    const maxAttempts = 20; // 10 seconds
 
-    const checkId = () => {
+    const check = () => {
       OneSignal.getUserId((id) => {
         if (id) {
-          console.log("OneSignal ID ready:", id);
+          console.log("OneSignal ID found:", id);
           resolve(id);
         } else if (attempts < maxAttempts) {
           attempts++;
-          console.log(`ID not ready yet (attempt ${attempts}/${maxAttempts})`);
-          setTimeout(checkId, 500);
+          console.log(`No ID yet (attempt ${attempts}/${maxAttempts})`);
+          setTimeout(check, 500);
         } else {
           console.warn("Timed out waiting for OneSignal ID");
           resolve(null);
@@ -1062,22 +1065,26 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
       });
     };
 
-    checkId();
+    check();
   });
 
   if (oneSignalUserId) {
-    const { error } = await supabaseClient
-      .from('users')
-      .update({ onesignal_id: oneSignalUserId })
-      .eq('id', userId);
+    try {
+      const { error } = await supabaseClient
+        .from('users')
+        .update({ onesignal_id: oneSignalUserId })
+        .eq('id', userId);
 
-    if (error) {
-      console.error("Failed to link OneSignal ID to Supabase:", error);
-    } else {
-      console.log("Successfully linked OneSignal ID:", oneSignalUserId);
+      if (error) {
+        console.error("Failed to save OneSignal ID:", error.message);
+      } else {
+        console.log("Successfully linked OneSignal ID:", oneSignalUserId);
+      }
+    } catch (err) {
+      console.error("Supabase error during link:", err);
     }
   } else {
-    console.warn("No OneSignal ID available — user may not be fully subscribed yet");
+    console.warn("No OneSignal ID after waiting — check if notifications are allowed");
   }
 }
         
