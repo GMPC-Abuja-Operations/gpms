@@ -1053,33 +1053,27 @@ const fcmResult = await manageFCMToken(user.id);
     }
 
     // Step 6: Set up token refresh listener
-    messaging.onTokenRefresh(async () => {
-      console.log('FCM token refreshing...');
-      try {
-        const newToken = await messaging.getToken({
-          vapidKey: VAPID_KEY,
-          serviceWorkerRegistration: registration
-        });
+    messaging.onTokenRefresh(async (newToken) => {
+      console.log('FCM token refreshed:', newToken.substring(0, 20) + '...');
+      
+      if (newToken && userId) {
+        const newCleanToken = newToken.includes('fcm.googleapis.com') 
+          ? newToken.split('/').pop() 
+          : newToken;
         
-        if (newToken && userId) {
-          const newCleanToken = newToken.includes('fcm.googleapis.com') 
-            ? newToken.split('/').pop() 
-            : newToken;
-          
-          await supabaseClient
-            .from('users')
-            .update({
-              fcm_token: newCleanToken,
-              push_endpoint: newToken,
-              token_updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-          
-          console.log('✅ FCM token refreshed in database');
-        }
-      } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
+        await supabaseClient
+          .from('users')
+          .update({
+            fcm_token: newCleanToken,
+            push_endpoint: newToken,
+            token_updated_at: new Date().toISOString()
+          })
+          .eq('id', userId);
+        
+        console.log('✅ FCM token refreshed in database');
       }
+    }, (error) => {
+      console.error('Token refresh error:', error);
     });
 
     // Step 7: Save token to Supabase only if needed
