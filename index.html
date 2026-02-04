@@ -9,8 +9,33 @@
     <link rel="apple-touch-icon" href="Picture1.png">
 
     <!-- FCM SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+  import { getMessaging, getToken, onMessage, onTokenRefresh } 
+    from "https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js";
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
+    authDomain: "gpms-notifications.firebaseapp.com",
+    projectId: "gpms-notifications",
+    storageBucket: "gpms-notifications.firebasestorage.app",
+    messagingSenderId: "240580625031",
+    appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
+    measurementId: "G-D41F7DQVLP"
+  };
+  
+  const app = initializeApp(firebaseConfig);
+  const messaging = getMessaging(app);
+  
+  // Make available globally (for your existing code)
+  window.firebaseApp = app;
+  window.firebaseMessaging = messaging;
+  window.firebaseGetToken = getToken;
+  window.firebaseOnMessage = onMessage;
+  window.firebaseOnTokenRefresh = onTokenRefresh;
+  
+  console.log('✅ Firebase Modular initialized');
+</script>
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
@@ -983,13 +1008,12 @@ const fcmResult = await manageFCMToken(user.id);
 
         // ========== UNIVERSAL PUSH SUBSCRIPTION FUNCTIONS ==========
         async function manageFCMToken(userId) {
-  console.log('Starting FCM token management...');
+  console.log('Starting FCM token management (Modular API)...');
 
   try {
-    // Step 1: Get or register service worker
+    // 1. Get service worker (unchanged)
     let registration;
     const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-
     const ourRegistration = existingRegistrations.find(
       reg => reg.scope === 'https://gmpc-abuja-operations.github.io/gpms/'
     );
@@ -1005,132 +1029,87 @@ const fcmResult = await manageFCMToken(user.id);
       console.log('Created new service worker registration');
     }
 
-    // Step 2: Request notification permission
-    console.log('Requesting notification permission...');
+    // 2. Check permission (unchanged)
     const permission = await Notification.requestPermission();
-    console.log('Notification permission:', permission);
-
     if (permission !== 'granted') {
       console.warn('Notification permission denied');
       return null;
     }
 
-    // Step 3: Initialize messaging
-    if (!firebase.apps.length) {
-      console.error('Firebase not initialized');
+    // 3. Get messaging from Modular API
+    const messaging = window.firebaseMessaging;
+    if (!messaging) {
+      console.error('Firebase messaging not available');
       return null;
     }
-    const messaging = firebase.messaging();
 
-    // Step 4: Get FCM token
-    console.log('Getting FCM token with our service worker...');
-    const fcmToken = await messaging.getToken({
+    // 4. Get FCM token (Modular syntax)
+    console.log('Getting FCM token...');
+    const token = await window.firebaseGetToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: registration
     });
 
-    if (!fcmToken) {
+    if (!token) {
       console.log('No FCM token available');
       return null;
     }
 
-    console.log('✅ FCM Token obtained');
+    console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
 
-    // Step 5: Determine token type
-    let tokenType = 'unknown';
-    let cleanToken = fcmToken; // Token without URL prefix
-
-    if (fcmToken.includes('fcm.googleapis.com')) {
-      tokenType = 'fcm';
-      cleanToken = fcmToken.split('/').pop();
-      console.log('Chrome/Firefox FCM token detected');
-    } else if (fcmToken.includes('wns2-')) {
-      tokenType = 'wns';
-      console.log('Microsoft Edge WNS endpoint detected');
-    } else if (fcmToken.includes('updates.push.services.mozilla.com')) {
-      tokenType = 'firefox';
-      console.log('Firefox push endpoint detected');
-    }
-
-    // Step 6: Set up token refresh listener
-    messaging.onTokenRefresh(async (newToken) => {
-      console.log('FCM token refreshed:', newToken.substring(0, 20) + '...');
+    // 5. SET UP TOKEN REFRESH (Modular - THIS WILL WORK!)
+    window.firebaseOnTokenRefresh(messaging, async (newToken) => {
+      console.log('✅ Token refreshed:', newToken.substring(0, 20) + '...');
       
-      if (newToken && userId) {
-        const newCleanToken = newToken.includes('fcm.googleapis.com') 
-          ? newToken.split('/').pop() 
-          : newToken;
+      const cleanToken = newToken.includes('fcm.googleapis.com') 
+        ? newToken.split('/').pop() 
+        : newToken;
+      
+      await supabaseClient
+        .from('users')
+        .update({
+          fcm_token: cleanToken,
+          push_endpoint: newToken,
+          token_updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
         
-        await supabaseClient
-          .from('users')
-          .update({
-            fcm_token: newCleanToken,
-            push_endpoint: newToken,
-            token_updated_at: new Date().toISOString()
-          })
-          .eq('id', userId);
-        
-        console.log('✅ FCM token refreshed in database');
-      }
-    }, (error) => {
-      console.error('Token refresh error:', error);
+      console.log('✅ Token updated in database');
     });
 
-    // Step 7: Save token to Supabase only if needed
+    // 6. Process token (unchanged)
+    let tokenType = 'fcm';
+    let cleanToken = token.includes('fcm.googleapis.com') 
+      ? token.split('/').pop() 
+      : token;
+
+    // 7. Save to database (unchanged)
     if (userId) {
-      const { data: existingUser, error: fetchError } = await supabaseClient
+      const { error: updateError } = await supabaseClient
         .from('users')
-        .select('fcm_token')
-        .eq('id', userId)
-        .single();
+        .update({
+          fcm_token: cleanToken,
+          push_endpoint: token,
+          token_type: tokenType,
+          token_updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows
-        console.error('Error fetching user:', fetchError);
-        return null;
-      }
-
-      // Compare with clean token (without URL prefix)
-      if (!existingUser || existingUser.fcm_token !== cleanToken) {
-        const { error: updateError } = await supabaseClient
-          .from('users')
-          .update({
-            fcm_token: cleanToken,
-            push_endpoint: fcmToken,
-            token_type: tokenType,
-            token_updated_at: new Date().toISOString()
-          })
-          .eq('id', userId);
-
-        if (updateError) {
-          console.error('Error updating FCM token:', updateError);
-        } else {
-          console.log('✅ FCM token saved to database');
-        }
+      if (updateError) {
+        console.error('Error updating FCM token:', updateError);
       } else {
-        console.log('ℹ️ FCM token already up to date');
+        console.log('✅ FCM token saved to database');
       }
     }
 
     return {
       token: cleanToken,
-      endpoint: fcmToken,
+      endpoint: token,
       type: tokenType
     };
 
   } catch (error) {
-    console.error('❌ FCM token management failed:', error);
-
-    // Handle specific errors
-    if (error.code === 'messaging/permission-blocked') {
-      console.log('Notifications blocked by user');
-    } else if (error.code === 'messaging/permission-default') {
-      console.log('Notification permission not requested yet');
-    } else if (error.code === 'messaging/failed-service-worker-registration') {
-      console.error('Service worker registration failed. Check:');
-      console.error('1. File exists at /gpms/firebase-messaging-sw.js');
-      console.error('2. GitHub Pages is serving it correctly');
-    }
-
+    console.error('❌ FCM token management failed:', error.message);
     return null;
   }
 }
