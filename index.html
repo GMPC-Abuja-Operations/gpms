@@ -11,7 +11,7 @@
     <!-- FCM SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-  import { getMessaging, getToken, onMessage, onTokenChanged } 
+  import { getMessaging, getToken, onMessage } 
     from "https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js";
   
   const firebaseConfig = {
@@ -25,22 +25,47 @@
   };
   
   try {
+    console.log('🔄 Loading Firebase...');
     const app = initializeApp(firebaseConfig);
     const messaging = getMessaging(app);
     
-    // Store globally
-    window.firebaseApp = app;
-    window.firebaseMessaging = messaging;
-    window.firebaseGetToken = getToken;
-    window.firebaseOnMessage = onMessage;
-    window.firebaseOnTokenChanged = onTokenChanged;
+    // Store globally - USE SIMPLE NAMES
+    window.fbMessaging = messaging;
+    window.fbGetToken = getToken;
+    window.fbOnMessage = onMessage;
     
-    console.log('✅ Firebase Modular ready');
+    console.log('✅ Firebase loaded!');
     console.log('Messaging available:', !!messaging);
+    
+    // Mark as ready
+    window.firebaseReady = true;
   } catch (error) {
-    console.error('❌ Firebase init failed:', error);
+    console.error('❌ Firebase failed:', error);
     window.firebaseError = error;
   }
+</script>
+    <script>
+// Debug Firebase loading
+console.log('=== FIREBASE DEBUG ===');
+console.log('window.fbMessaging:', window.fbMessaging);
+console.log('window.firebaseReady:', window.firebaseReady);
+console.log('window.firebaseError:', window.firebaseError);
+
+// Check every second
+let checkCount = 0;
+const firebaseCheck = setInterval(() => {
+  checkCount++;
+  console.log(`Firebase check ${checkCount}:`, {
+    fbMessaging: !!window.fbMessaging,
+    fbGetToken: !!window.fbGetToken,
+    firebaseReady: window.firebaseReady
+  });
+  
+  if (window.fbMessaging || checkCount > 10) {
+    clearInterval(firebaseCheck);
+    console.log('Firebase check complete');
+  }
+}, 1000);
 </script>
     
     <!-- Supabase SDK -->
@@ -1015,16 +1040,23 @@ const fcmResult = await manageFCMToken(user.id);
         // ========== UNIVERSAL PUSH SUBSCRIPTION FUNCTIONS ==========
         async function manageFCMToken(userId) {
   console.log('Starting FCM token management...');
-
-  // Check if Firebase is available
-  if (!window.firebaseMessaging) {
-    console.error('❌ Firebase messaging not available');
-    if (window.firebaseError) {
-      console.error('Firebase error:', window.firebaseError);
+  
+  // Wait for Firebase to load
+  if (!window.fbMessaging) {
+    console.log('⏳ Waiting for Firebase...');
+    
+    // Try waiting 2 seconds
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    if (!window.fbMessaging) {
+      console.error('❌ Firebase still not available after waiting');
+      if (window.firebaseError) {
+        console.error('Firebase error:', window.firebaseError);
+      }
+      return null;
     }
-    return null;
   }
-
+  
   try {
     // 1. Get service worker
     let registration;
@@ -1041,6 +1073,7 @@ const fcmResult = await manageFCMToken(user.id);
         '/gpms/firebase-messaging-sw.js',
         { scope: '/gpms/', updateViaCache: 'none' }
       );
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Let SW activate
       console.log('Created new service worker registration');
     }
 
@@ -1051,9 +1084,9 @@ const fcmResult = await manageFCMToken(user.id);
       return null;
     }
 
-    // 3. Get token (Modular syntax)
+    // 3. Get token
     console.log('Getting FCM token...');
-    const token = await window.firebaseGetToken(window.firebaseMessaging, {
+    const token = await window.fbGetToken(window.fbMessaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: registration
     });
@@ -1065,36 +1098,51 @@ const fcmResult = await manageFCMToken(user.id);
 
     console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
 
-    // 4. Set up token change listener
-    if (window.firebaseOnTokenChanged) {
-      window.firebaseOnTokenChanged(window.firebaseMessaging, async (newToken) => {
-        console.log('✅ Token changed:', newToken.substring(0, 20) + '...');
+    // 4. Handle token refresh via polling (since onTokenChanged doesn't exist)
+    console.log('Setting up token refresh polling...');
+    
+    // Store current token
+    let currentToken = token;
+    
+    // Poll for token changes every 5 minutes
+    const tokenCheckInterval = setInterval(async () => {
+      try {
+        const newToken = await window.fbGetToken(window.fbMessaging, {
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: registration
+        });
         
-        const cleanToken = newToken.includes('fcm.googleapis.com') 
-          ? newToken.split('/').pop() 
-          : newToken;
-        
-        await supabaseClient
-          .from('users')
-          .update({
-            fcm_token: cleanToken,
-            push_endpoint: newToken,
-            token_updated_at: new Date().toISOString()
-          })
-          .eq('id', userId);
+        if (newToken && newToken !== currentToken) {
+          console.log('🔁 Token changed detected!');
+          currentToken = newToken;
           
-        console.log('✅ Token updated in database');
-      });
-    } else {
-      console.log('⚠️ onTokenChanged not available');
-    }
+          const cleanToken = newToken.includes('fcm.googleapis.com') 
+            ? newToken.split('/').pop() 
+            : newToken;
+          
+          await supabaseClient
+            .from('users')
+            .update({
+              fcm_token: cleanToken,
+              push_endpoint: newToken,
+              token_updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+            
+          console.log('✅ Token updated in database');
+        }
+      } catch (error) {
+        console.error('Token check error:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
 
-    // 5. Process and save token
+    // 5. Process token
     let tokenType = 'fcm';
     let cleanToken = token.includes('fcm.googleapis.com') 
       ? token.split('/').pop() 
       : token;
 
+    // 6. Save to database
     if (userId) {
       const { error: updateError } = await supabaseClient
         .from('users')
@@ -1121,6 +1169,7 @@ const fcmResult = await manageFCMToken(user.id);
 
   } catch (error) {
     console.error('❌ FCM token management failed:', error.message);
+    console.error('Full error:', error);
     return null;
   }
 }
