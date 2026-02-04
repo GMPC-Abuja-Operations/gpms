@@ -975,75 +975,80 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
 
         // ========== UNIVERSAL PUSH SUBSCRIPTION FUNCTIONS ==========
         async function subscribeToFCM() {
-          console.log('Starting universal push subscription...');
-          
-          try {
-            // Step 1: Register service worker
-            console.log('Registering service worker...');
-            const registration = await navigator.serviceWorker.register(
-              '/gpms/firebase-messaging-sw.js',
-              { scope: '/gpms/' }
-            );
-            
-            console.log('Service worker registered:', registration.scope);
-            
-            // Step 2: Request notification permission
-            console.log('Requesting notification permission...');
-            const permission = await Notification.requestPermission();
-            refreshAndSyncFcmToken(currentUser.id);
-            console.log('Notification permission:', permission);
-            
-            if (permission !== 'granted') {
-              console.warn('Notification permission denied');
-              return null;
-            }
-            
-            // Step 3: Get push subscription
-            console.log('Getting push subscription...');
-            const pushSubscription = await getPushSubscription(registration);
-            const subscriptionJSON = pushSubscription.toJSON();
-            
-            // Step 4: Prepare data for Supabase
-            const endpoint = subscriptionJSON.endpoint;
-            let tokenType = 'unknown';
-            let fcmToken = endpoint;
-            
-            // Determine browser/token type
-            if (endpoint.includes('fcm.googleapis.com')) {
-              tokenType = 'fcm';
-              fcmToken = endpoint.split('/').pop();
-              console.log('Chrome/Firefox FCM token detected');
-            } else if (endpoint.includes('wns2-')) {
-              tokenType = 'wns';
-              console.log('Microsoft Edge WNS endpoint detected');
-            } else if (endpoint.includes('updates.push.services.mozilla.com')) {
-              tokenType = 'firefox';
-              console.log('Firefox push endpoint detected');
-            }
-            
-            // Step 5: Save to Supabase
-            if (currentUser) {
-              await savePushSubscriptionToSupabase({
-                user_id: currentUser.id,
-                fcm_token: fcmToken,
-                push_endpoint: endpoint,
-                push_keys: subscriptionJSON.keys,
-                token_type: tokenType
-              });
-            }
-            
-            console.log('Push subscription saved successfully');
-            return {
-              token: fcmToken,
-              endpoint: endpoint,
-              type: tokenType
-            };
-            
-          } catch (error) {
-            console.error('Push subscription failed:', error);
-            return null;
-          }
-        }
+  console.log('Starting universal push subscription...');
+
+  try {
+    // Step 1: Register service worker with robust handling
+    console.log('Registering service worker...');
+    const registration = await navigator.serviceWorker.register(
+      '/gpms/firebase-messaging-sw.js',
+      { 
+        scope: '/gpms/',
+        updateViaCache: 'none' // <- version 1 enhancement
+      }
+    );
+
+    console.log('✅ Service worker registered at:', registration.scope);
+    console.log('Service worker state:', registration.active?.state);
+
+    // Step 2: Request notification permission
+    console.log('Requesting notification permission...');
+    const permission = await Notification.requestPermission();
+    refreshAndSyncFcmToken(currentUser.id);
+    console.log('Notification permission:', permission);
+
+    if (permission !== 'granted') {
+      console.warn('Notification permission denied');
+      return null;
+    }
+
+    // Step 3: Get push subscription
+    console.log('Getting push subscription...');
+    const pushSubscription = await getPushSubscription(registration);
+    const subscriptionJSON = pushSubscription.toJSON();
+
+    // Step 4: Prepare data for Supabase
+    const endpoint = subscriptionJSON.endpoint;
+    let tokenType = 'unknown';
+    let fcmToken = endpoint;
+
+    // Determine browser/token type
+    if (endpoint.includes('fcm.googleapis.com')) {
+      tokenType = 'fcm';
+      fcmToken = endpoint.split('/').pop();
+      console.log('Chrome/Firefox FCM token detected');
+    } else if (endpoint.includes('wns2-')) {
+      tokenType = 'wns';
+      console.log('Microsoft Edge WNS endpoint detected');
+    } else if (endpoint.includes('updates.push.services.mozilla.com')) {
+      tokenType = 'firefox';
+      console.log('Firefox push endpoint detected');
+    }
+
+    // Step 5: Save to Supabase
+    if (currentUser) {
+      await savePushSubscriptionToSupabase({
+        user_id: currentUser.id,
+        fcm_token: fcmToken,
+        push_endpoint: endpoint,
+        push_keys: subscriptionJSON.keys,
+        token_type: tokenType
+      });
+    }
+
+    console.log('Push subscription saved successfully');
+    return {
+      token: fcmToken,
+      endpoint: endpoint,
+      type: tokenType
+    };
+
+  } catch (error) {
+    console.error('Push subscription failed:', error);
+    return null;
+  }
+}
+
 
         async function refreshAndSyncFcmToken(userId) {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
