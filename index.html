@@ -885,62 +885,6 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
                 console.error('Sign out error:', error);
             }
         }
-
-async function diagnoseNotificationIssues() {
-  console.log('=== NOTIFICATION DIAGNOSIS ===');
-  
-  // 1. Check current user
-  console.log('1. Current User:', currentUser);
-  console.log('   ID:', currentUser?.id);
-  console.log('   Type of ID:', typeof currentUser?.id);
-  
-  // 2. Check Supabase connection
-  console.log('2. Testing Supabase connection...');
-  try {
-    const test = await supabaseClient.from('notifications').select('count', { count: 'exact', head: true });
-    console.log('   Connection:', test.error ? `❌ ${test.error.message}` : '✅ OK');
-  } catch (e) {
-    console.log('   Connection: ❌', e.message);
-  }
-  
-  // 3. Check what's in the table
-  console.log('3. Checking notifications table...');
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/notifications?select=id,title,recipients,status`,
-    {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      }
-    }
-  );
-  const notifications = await response.json();
-  console.log('   Total notifications:', notifications.length);
-  console.log('   Sample recipients:', notifications[0]?.recipients);
-  
-  // 4. Check realtime subscription
-  console.log('4. Realtime subscription:');
-  console.log('   Channel exists:', !!notificationsChannel);
-  console.log('   Filter would be:', `recipients=cs.{${currentUser?.id}}`);
-  
-  // 5. Check RLS policies
-  console.log('5. Testing update permissions...');
-  if (notifications.length > 0) {
-    const testUpdate = await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        id: notifications[0].id,
-        status: 'read'
-      })
-    });
-    console.log('   Update test:', testUpdate.ok ? '✅ OK' : `❌ ${testUpdate.status}`);
-  }
-}
         
         // Check auth state
         async function checkAuthState() {
@@ -2435,5 +2379,64 @@ document.querySelectorAll('form').forEach(form => {
     });
 });
 </script>
+
+<script>
+    async function diagnoseNotificationIssues() {
+  console.log('=== NOTIFICATION DIAGNOSIS ===');
+  
+  // 1. Check current user
+  console.log('1. Current User:', currentUser);
+  console.log('   ID:', currentUser?.id);
+  console.log('   Type of ID:', typeof currentUser?.id);
+  
+  // 2. Check Supabase connection
+  console.log('2. Testing Supabase connection...');
+  try {
+    const test = await supabaseClient.from('notifications').select('count', { count: 'exact', head: true });
+    console.log('   Connection:', test.error ? `❌ ${test.error.message}` : '✅ OK');
+  } catch (e) {
+    console.log('   Connection: ❌', e.message);
+  }
+  
+  // 3. Check what's in the table
+  console.log('3. Checking notifications table...');
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/notifications?select=id,title,recipients,status`,
+    {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    }
+  );
+  const notifications = await response.json();
+  console.log('   Total notifications:', notifications.length);
+  console.log('   Sample recipients:', notifications[0]?.recipients);
+  
+  // 4. Check realtime subscription
+  console.log('4. Realtime subscription:');
+  console.log('   Channel exists:', !!notificationsChannel);
+  console.log('   Filter would be:', `recipients=cs.{${currentUser?.id}}`);
+  
+  // 5. Check RLS policies
+  console.log('5. Testing update permissions...');
+  if (notifications.length > 0) {
+    const testUpdate = await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: notifications[0].id,
+        status: 'read'
+      })
+    });
+    console.log('   Update test:', testUpdate.ok ? '✅ OK' : `❌ ${testUpdate.status}`);
+  }
+}
+</script>
+    
 </body>
 </html>
