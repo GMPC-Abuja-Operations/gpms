@@ -11,7 +11,7 @@
     <!-- FCM SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-  import { getMessaging, getToken, onMessage, onTokenRefresh } 
+  import { getMessaging, getToken, onMessage, onTokenChanged } 
     from "https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js";
   
   const firebaseConfig = {
@@ -24,17 +24,23 @@
     measurementId: "G-D41F7DQVLP"
   };
   
-  const app = initializeApp(firebaseConfig);
-  const messaging = getMessaging(app);
-  
-  // Make available globally (for your existing code)
-  window.firebaseApp = app;
-  window.firebaseMessaging = messaging;
-  window.firebaseGetToken = getToken;
-  window.firebaseOnMessage = onMessage;
-  window.firebaseOnTokenRefresh = onTokenRefresh;
-  
-  console.log('✅ Firebase Modular initialized');
+  try {
+    const app = initializeApp(firebaseConfig);
+    const messaging = getMessaging(app);
+    
+    // Store globally
+    window.firebaseApp = app;
+    window.firebaseMessaging = messaging;
+    window.firebaseGetToken = getToken;
+    window.firebaseOnMessage = onMessage;
+    window.firebaseOnTokenChanged = onTokenChanged;
+    
+    console.log('✅ Firebase Modular ready');
+    console.log('Messaging available:', !!messaging);
+  } catch (error) {
+    console.error('❌ Firebase init failed:', error);
+    window.firebaseError = error;
+  }
 </script>
     
     <!-- Supabase SDK -->
@@ -960,7 +966,7 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
           };
 
           // Initialize Firebase only once
-          if (!firebase.apps.length) {
+          if (window.firebaseApp) { 
             firebase.initializeApp(firebaseConfig);
           }
 
@@ -1008,10 +1014,19 @@ const fcmResult = await manageFCMToken(user.id);
 
         // ========== UNIVERSAL PUSH SUBSCRIPTION FUNCTIONS ==========
         async function manageFCMToken(userId) {
-  console.log('Starting FCM token management (Modular API)...');
+  console.log('Starting FCM token management...');
+
+  // Check if Firebase is available
+  if (!window.firebaseMessaging) {
+    console.error('❌ Firebase messaging not available');
+    if (window.firebaseError) {
+      console.error('Firebase error:', window.firebaseError);
+    }
+    return null;
+  }
 
   try {
-    // 1. Get service worker (unchanged)
+    // 1. Get service worker
     let registration;
     const existingRegistrations = await navigator.serviceWorker.getRegistrations();
     const ourRegistration = existingRegistrations.find(
@@ -1029,23 +1044,16 @@ const fcmResult = await manageFCMToken(user.id);
       console.log('Created new service worker registration');
     }
 
-    // 2. Check permission (unchanged)
+    // 2. Check permission
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Notification permission denied');
       return null;
     }
 
-    // 3. Get messaging from Modular API
-    const messaging = window.firebaseMessaging;
-    if (!messaging) {
-      console.error('Firebase messaging not available');
-      return null;
-    }
-
-    // 4. Get FCM token (Modular syntax)
+    // 3. Get token (Modular syntax)
     console.log('Getting FCM token...');
-    const token = await window.firebaseGetToken(messaging, {
+    const token = await window.firebaseGetToken(window.firebaseMessaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: registration
     });
@@ -1057,33 +1065,36 @@ const fcmResult = await manageFCMToken(user.id);
 
     console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
 
-    // 5. SET UP TOKEN REFRESH (Modular - THIS WILL WORK!)
-    window.firebaseOnTokenRefresh(messaging, async (newToken) => {
-      console.log('✅ Token refreshed:', newToken.substring(0, 20) + '...');
-      
-      const cleanToken = newToken.includes('fcm.googleapis.com') 
-        ? newToken.split('/').pop() 
-        : newToken;
-      
-      await supabaseClient
-        .from('users')
-        .update({
-          fcm_token: cleanToken,
-          push_endpoint: newToken,
-          token_updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
+    // 4. Set up token change listener
+    if (window.firebaseOnTokenChanged) {
+      window.firebaseOnTokenChanged(window.firebaseMessaging, async (newToken) => {
+        console.log('✅ Token changed:', newToken.substring(0, 20) + '...');
         
-      console.log('✅ Token updated in database');
-    });
+        const cleanToken = newToken.includes('fcm.googleapis.com') 
+          ? newToken.split('/').pop() 
+          : newToken;
+        
+        await supabaseClient
+          .from('users')
+          .update({
+            fcm_token: cleanToken,
+            push_endpoint: newToken,
+            token_updated_at: new Date().toISOString()
+          })
+          .eq('id', userId);
+          
+        console.log('✅ Token updated in database');
+      });
+    } else {
+      console.log('⚠️ onTokenChanged not available');
+    }
 
-    // 6. Process token (unchanged)
+    // 5. Process and save token
     let tokenType = 'fcm';
     let cleanToken = token.includes('fcm.googleapis.com') 
       ? token.split('/').pop() 
       : token;
 
-    // 7. Save to database (unchanged)
     if (userId) {
       const { error: updateError } = await supabaseClient
         .from('users')
