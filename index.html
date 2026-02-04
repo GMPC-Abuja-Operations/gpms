@@ -978,18 +978,26 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
   console.log('Starting universal push subscription...');
 
   try {
-    // Step 1: Register service worker with robust handling
-    console.log('Registering service worker...');
-    const registration = await navigator.serviceWorker.register(
-      '/gpms/firebase-messaging-sw.js',
-      { 
-        scope: '/gpms/',
-        updateViaCache: 'none' // <- version 1 enhancement
-      }
+    // Step 1: Get or register our service worker (from Version 1)
+    let registration;
+    const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+
+    // Find existing registration for our scope
+    const ourRegistration = existingRegistrations.find(
+      reg => reg.scope === 'https://gmpc-abuja-operations.github.io/gpms/'
     );
 
-    console.log('✅ Service worker registered at:', registration.scope);
-    console.log('Service worker state:', registration.active?.state);
+   if (ourRegistration) {
+  registration = ourRegistration;
+  console.log('Using existing service worker registration');
+} else {
+  registration = await navigator.serviceWorker.register(
+    '/gpms/firebase-messaging-sw.js',
+    { scope: '/gpms/', updateViaCache: 'none' } // keep updateViaCache here
+  );
+  console.log('Created new service worker registration');
+}
+
 
     // Step 2: Request notification permission
     console.log('Requesting notification permission...');
@@ -1049,7 +1057,6 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
   }
 }
 
-
         async function refreshAndSyncFcmToken(userId) {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
     console.log('Notifications not granted');
@@ -1063,22 +1070,46 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
       return;
     }
 
-    // Get messaging instance (compat syntax)
+    // Step 1: Get or register the correct service worker
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    let myRegistration = null;
+
+    // Find SW with our scope
+    for (const reg of registrations) {
+      if (reg.scope === 'https://gmpc-abuja-operations.github.io/gpms/') {
+        myRegistration = reg;
+        console.log('Found our service worker registration');
+        break;
+      }
+    }
+
+    // Register if not found
+    if (!myRegistration) {
+      console.log('Registering our service worker...');
+      myRegistration = await navigator.serviceWorker.register(
+        '/gpms/firebase-messaging-sw.js',
+        { scope: '/gpms/', updateViaCache: 'none' }
+      );
+    }
+
+    // Step 2: Initialize messaging and tell it to use our service worker
     const messaging = firebase.messaging();
-    
-    // Get token (compat syntax)
-    const token = await messaging.getToken({ 
-      vapidKey: VAPID_KEY 
-    });
-    
+    await messaging.useServiceWorker(myRegistration);
+
+    // Step 3: Set VAPID key
+    messaging.usePublicVapidKey(VAPID_KEY);
+
+    // Step 4: Get FCM token
+    console.log('Getting FCM token with our service worker...');
+    const token = await messaging.getToken();
     if (!token) {
       console.log('No FCM token available');
       return;
     }
 
-    console.log('FCM Token obtained');
+    console.log('FCM Token obtained (first 20 chars):', token.substring(0, 20) + '...');
 
-    // Check if token already exists in database
+    // Step 5: Check database and update if needed
     const { data: existingUser, error: fetchError } = await supabaseClient
       .from('users')
       .select('fcm_token')
@@ -1090,7 +1121,6 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
       return;
     }
 
-    // Update token if it's new or different
     if (!existingUser || existingUser.fcm_token !== token) {
       const { error: updateError } = await supabaseClient
         .from('users')
@@ -1108,9 +1138,11 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
     } else {
       console.log('FCM token already up to date');
     }
+
   } catch (error) {
     console.error('FCM token refresh failed:', error);
-    // Handle specific errors
+
+    // Permission-specific diagnostics from version 2
     if (error.code === 'messaging/permission-blocked') {
       console.log('Notifications blocked by user');
     } else if (error.code === 'messaging/permission-default') {
@@ -1118,6 +1150,7 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
     }
   }
 }
+
 
         // Helper: Get or create push subscription
         async function getPushSubscription(registration) {
@@ -1495,29 +1528,32 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
     div.dataset.notificationId = notification.id;
     
     // ADD THIS: Click handler to mark as read
-    div.onclick = async function(event) {
-        // Don't trigger if clicking buttons inside
-        if (event.target.tagName === 'BUTTON' || event.target.closest('button')) {
-            return;
-        }
-        
-        // Mark as read
-        const success = await markNotificationAsRead(notification.id);
-        if (success) {
-            // Visual feedback
-            this.style.opacity = '0.6';
-            this.style.backgroundColor = '#f9f9f9';
-            
-            // Update count
-            const countBadge = document.getElementById('notification-count');
-            const currentCount = parseInt(countBadge.textContent) || 1;
-            const newCount = Math.max(0, currentCount - 1);
-            countBadge.textContent = newCount.toString();
-            if (newCount === 0) {
-                countBadge.style.display = 'none';
-            }
-        }
-    };
+div.onclick = async function(event) {
+  // Don't trigger if clicking buttons inside
+  if (event.target.tagName === 'BUTTON' || event.target.closest('button')) {
+    return;
+  }
+  
+  // Visual feedback immediately
+  this.style.opacity = '0.6';
+  this.style.backgroundColor = '#f9f9f9';
+  
+  // Mark as read
+  const success = await markNotificationAsRead(notification.id);
+  
+  if (success) {
+    // Remove from UI after successful mark
+    setTimeout(() => {
+      this.remove();
+      updateNotificationCount();
+    }, 300);
+  } else {
+    // Reset visual feedback if failed
+    this.style.opacity = '1';
+    this.style.backgroundColor = '';
+    console.error('Failed to mark notification as read');
+  }
+};
             
             const isApprover = notification.approver_uid === currentUser?.id;
             const now = new Date();
@@ -2569,15 +2605,67 @@ window.debugNotifications = async function() {
 </script>
 <script>
     async function markAllNotificationsAsRead() {
-  const notifications = document.querySelectorAll('.notification-item');
-  
-  for (const notification of notifications) {
-    const notificationId = notification.dataset.notificationId;
-    await markNotificationAsRead(notificationId);
+  if (!currentUser) {
+    alert('Please sign in first');
+    return;
   }
   
-  // Clear UI after marking all as read
-  updateNotificationUI([]);
+  try {
+    // Get all pending notifications for current user
+    const { data: notifications, error: fetchError } = await supabaseClient
+      .from('notifications')
+      .select('id')
+      .contains('recipients', [currentUser.id])
+      .eq('status', 'pending');
+    
+    if (fetchError) {
+      console.error('Error fetching notifications:', fetchError);
+      return;
+    }
+    
+    if (!notifications || notifications.length === 0) {
+      console.log('No pending notifications to mark as read');
+      return;
+    }
+    
+    console.log(`Marking ${notifications.length} notifications as read...`);
+    
+    // Update all notifications at once
+    const notificationIds = notifications.map(n => n.id);
+    
+    const { error: updateError } = await supabaseClient
+      .from('notifications')
+      .update({
+        status: 'read',
+        read_at: new Date().toISOString()
+      })
+      .in('id', notificationIds);
+    
+    if (updateError) {
+      console.error('Error updating notifications:', updateError);
+      // Try fallback without read_at
+      const { error: simpleError } = await supabaseClient
+        .from('notifications')
+        .update({ status: 'read' })
+        .in('id', notificationIds);
+      
+      if (simpleError) {
+        console.error('Fallback also failed:', simpleError);
+        alert('Failed to mark notifications as read');
+        return;
+      }
+    }
+    
+    // Update UI
+    updateNotificationUI([]);
+    
+    // Show success message
+    showTempMessage('success-banner', `Marked ${notifications.length} notifications as read`, 3000);
+    
+  } catch (error) {
+    console.error('Failed to mark all as read:', error);
+    alert('Error: ' + error.message);
+  }
 }
 </script>
 
