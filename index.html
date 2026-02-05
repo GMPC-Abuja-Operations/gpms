@@ -752,235 +752,526 @@ const firebaseCheck = setInterval(() => {
             <div id="loading" class="loading">Submitting...</div>
         </div>
     </div>
-
-    <!-- ============================================
-         CONFIGURATION & INITIALIZATION
-    ============================================ -->
-        <!-- ============================================
-         CONFIGURATION & INITIALIZATION - FIXED VERSION
-    ============================================ -->
-    <script>
-        // ========== CONFIGURATION ==========
-        // REPLACE THESE WITH YOUR ACTUAL VALUES
-        const SUPABASE_URL = 'https://sudsanzsdppdjcsvsukf.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo';
-        const ONESIGNAL_APP_ID = '179a1072-ca8a-4e68-8d61-d3419d7d5138';
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIo4fEk6tPLGrYCYBhwtayKdqYqkH_hqSwnCTgwDXAE456F-6gKhraeYldVq_P_h4/exec';
-        const VAPID_KEY = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ';
-        
-        // ========== GLOBAL VARIABLES ==========
-        let supabaseClient = null;
-        let currentUser = null;
-        let notificationsChannel = null;
-        let allTasks = [];
-        let authInitialized = false;
-    </script>
     
-    <script>
-  // Initialize app when DOM is loaded
-  document.addEventListener('DOMContentLoaded', () => {
-    initializeApp();
+<!-- ============================================
+     MAIN APP LOGIC - ALL SCRIPTS CONSOLIDATED HERE
+     Keep this as the LAST <script> block
+============================================= -->
+<script>
+    // ========== CONFIG & GLOBALS (already at top - keep if needed) ==========
+    const SUPABASE_URL = 'https://sudsanzsdppdjcsvsukf.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo';
+    const ONESIGNAL_APP_ID = '179a1072-ca8a-4e68-8d61-d3419d7d5138';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIo4fEk6tPLGrYCYBhwtayKdqYqkH_hqSwnCTgwDXAE456F-6gKhraeYldVq_P_h4/exec';
+    const VAPID_KEY = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ';
+    
+    // ========== GLOBAL VARIABLES ==========
+    let supabaseClient = null;
+    let currentUser = null;
+    let notificationsChannel = null;
+    let allTasks = [];
+    let authInitialized = false;
 
-            function initializeApp() {
-            // Set minimum dates
-            const today = new Date().toISOString().split('T')[0];
-            if (document.getElementById('dueDate')) {
-                document.getElementById('dueDate').min = today;
-            }
-            if (document.getElementById('nextFollowupDate')) {
-                document.getElementById('nextFollowupDate').min = today;
-            }
-            
-            // Load tasks for update form
-            loadTasks();
-            
-            // Load draft if exists
-            loadFormDraft();
-            
-            // Initialize keyboard shortcuts
-            initKeyboardShortcuts();
-            
-            // Initialize search functionality
-            initTaskSearch();
-            
-            // Initialize Naira formatting
-            initNairaFormatting();
+    // ========== SUPABASE & AUTH ==========
+    // Initialize Supabase immediately
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+            storage: localStorage,
+            autoRefreshToken: true,
+            persistSession: true,
+            storageKey: `sb-sudsanzsdppdjcsvsukf-auth-token`
         }
-    
-    // Request notification permission if not already granted/denied
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
     });
-    </script>
-    
-    <!-- ============================================
-         SUPABASE INITIALIZATION & AUTH FIX
-    ============================================ -->
-    <script>
-        // Initialize Supabase immediately (not in DOMContentLoaded)
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    storage: localStorage,           // Explicitly use localStorage
-    autoRefreshToken: true,
-    persistSession: true,
-    storageKey: `sb-sudsanzsdppdjcsvsukf-auth-token`  // match your project ref
-  }
-});
 
-// Debug current session immediately
-supabaseClient.auth.getSession().then(({ data, error }) => {
-  console.log('Current session debug:');
-  console.log('Session exists?', !!data.session);
-  console.log('Access token?', data.session?.access_token ? 'yes' : 'no');
-  console.log('Refresh token?', data.session?.refresh_token ? 'yes' : 'no');
-  console.log('User ID?', data.session?.user?.id);
-  if (error) console.error('Get session error:', error);
-});
-        
-        // Check auth state immediately
-        checkAuthState();
-        
-        // ========== AUTHENTICATION FUNCTIONS ==========
-        
-        // Show login form
-        function showLoginForm() {
-            console.log('Showing login form');
-            document.getElementById('show-login-btn').style.display = 'none';
-            document.getElementById('login-form').style.display = 'block';
-            document.getElementById('reset-form').style.display = 'none';
+    // ========== HELPER: showTempMessage ==========
+    function showTempMessage(bannerId, message, duration = 3000) {
+        const banner = document.getElementById(bannerId);
+        if (banner) {
+            banner.textContent = message;
+            banner.style.display = 'block';
+            setTimeout(() => banner.style.display = 'none', duration);
         }
+    }
+
+    // ========== NOTIFICATION FUNCTIONS ==========
+    async function loadNotifications() {
+        if (!currentUser) return;
         
-        // Show password reset form
-        function showPasswordReset() {
-            console.log('Showing password reset form');
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('reset-form').style.display = 'block';
+        try {
+            const { data: notifications, error } = await supabaseClient
+                .from('notifications')
+                .select('*')
+                .contains('recipients', [currentUser.id])
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            
+            // Filter: not read by user AND status is pending or approved
+            const visibleNotifications = notifications.filter(n => {
+                const userHasRead = n.read_by?.includes(currentUser.id) || false;
+                return !userHasRead && (n.status === 'pending' || n.status === 'approved');
+            });
+
+            updateNotificationUI(visibleNotifications);
+        } catch (err) {
+            console.error('Load notifications error:', err);
         }
-        
-        // Sign in with email/password
-        async function signInWithEmail() {
-            console.log('Sign in attempted');
-            
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            const errorElement = document.getElementById('login-error');
-            
-            // Clear previous errors
-            errorElement.style.display = 'none';
-            errorElement.textContent = '';
-            
-            if (!email || !password) {
-                errorElement.textContent = 'Please enter both email and password';
-                errorElement.style.display = 'block';
-                return;
-            }
-            
-            try {
-                console.log('Attempting sign in with email:', email);
-                
-                const { data, error } = await supabaseClient.auth.signInWithPassword({
-                    email: email.trim(),
-                    password: password
-                });
-                
-                if (error) {
-                    console.error('Supabase auth error:', error);
-                    throw error;
+    }
+
+    async function loadExistingNotifications() {
+        await loadNotifications();
+    }
+
+    function subscribeToRealtime() {
+        if (!currentUser || notificationsChannel) return;
+        const filterValue = `recipients=cs.{${currentUser.id}}`;
+        notificationsChannel = supabaseClient
+            .channel('notifications-channel')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'notifications', filter: filterValue },
+                (payload) => {
+                    console.log('🔔 REALTIME:', payload.eventType, payload.new?.title || '(no title)');
+                    
+                    if (payload.eventType === 'INSERT') {
+                        const userHasRead = payload.new.read_by?.includes(currentUser.id) || false;
+                        if (!userHasRead && (payload.new.status === 'pending' || payload.new.status === 'approved')) {
+                            addNotificationToUI(payload.new);
+                            showBrowserNotification(payload.new.title, payload.new.message);
+                        }
+                    } else if (payload.eventType === 'UPDATE') {
+                        const userHasRead = payload.new.read_by?.includes(currentUser.id) || false;
+                        if (!userHasRead && (payload.new.status === 'pending' || payload.new.status === 'approved')) {
+                            updateNotificationInUI(payload.new);
+                        } else {
+                            const elem = document.querySelector(`[data-notification-id="${payload.new.id}"]`);
+                            if (elem) {
+                                elem.remove();
+                                updateNotificationCount();
+                            }
+                        }
+                    }
                 }
-                
-                console.log('Signed in successfully:', data.user.email);
+            )
+            .subscribe(status => {
+                console.log('Realtime status:', status);
+            });
+    }
 
-                // After successful signInWithPassword
-const { data: sessionData } = await supabaseClient.auth.getSession();
-console.log('Post-login session:', sessionData);
-localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessionData.session));
-                
-                // Clear form
-                document.getElementById('login-email').value = '';
-                document.getElementById('login-password').value = '';
-                
-            } catch (error) {
-                console.error('Sign in error:', error);
-                errorElement.textContent = error.message || 'Sign in failed. Please check your credentials.';
-                errorElement.style.display = 'block';
-            }
+    function updateNotificationUI(notifications) {
+        const list = document.getElementById('notification-list');
+        const countBadge = document.getElementById('notification-count');
+        
+        if (!list) return;
+        
+        list.innerHTML = '';
+        const pendingNotifications = notifications.filter(n => n.status === 'pending');
+        
+        if (pendingNotifications.length === 0) {
+            list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
+            countBadge.textContent = '0';
+            countBadge.style.display = 'none';
+            return;
         }
         
-        // Reset password
-        async function resetPassword() {
-            const email = document.getElementById('reset-email').value;
-            const messageElement = document.getElementById('reset-message');
-            
-            if (!email) {
-                alert('Please enter your email address');
-                return;
-            }
-            
-            try {
-                const { error } = await supabaseClient.auth.resetPasswordForEmail(email.trim(), {
-                    redirectTo: window.location.origin + '/reset-password.html'
-                });
-                
-                if (error) throw error;
-                
-                // Show success message
-                messageElement.style.display = 'block';
-                document.getElementById('reset-email').value = '';
-                
-                // Hide message after 5 seconds
+        pendingNotifications.forEach(notification => {
+            const item = createNotificationElement(notification);
+            list.appendChild(item);
+        });
+        
+        countBadge.textContent = pendingNotifications.length.toString();
+        countBadge.style.display = 'inline';
+    }
+
+    function addNotificationToUI(notification) {
+        const list = document.getElementById('notification-list');
+        const countBadge = document.getElementById('notification-count');
+        
+        if (!list) return;
+        
+        // Remove "no notifications" message if present
+        if (list.innerHTML.includes('No notifications')) {
+            list.innerHTML = '';
+        }
+        
+        // Add new notification at top
+        const item = createNotificationElement(notification);
+        list.insertBefore(item, list.firstChild);
+        
+        // Update count
+        const currentCount = parseInt(countBadge.textContent) || 0;
+        countBadge.textContent = (currentCount + 1).toString();
+        countBadge.style.display = 'inline';
+        
+        // Show notification panel if not visible
+        const panel = document.getElementById('notification-panel');
+        if (panel.style.display === 'none') {
+            // Make bell pulse to attract attention
+            const bell = document.getElementById('notification-bell');
+            bell.style.animation = 'pulse 1s infinite';
+            setTimeout(() => {
+                bell.style.animation = '';
+            }, 3000);
+        }
+    }
+
+    function createNotificationElement(notification) {
+        const div = document.createElement('div');
+        div.className = 'notification-item';
+        div.style.cssText = 'border-bottom:1px solid #eee; padding:15px 0; cursor: pointer;';
+        div.dataset.notificationId = notification.id;
+        
+        // Click handler
+        div.onclick = async function(event) {
+            if (event.target.tagName === 'BUTTON' || event.target.closest('button')) return;
+            this.style.opacity = '0.6';
+            this.style.backgroundColor = '#f9f9f9';
+            const success = await markNotificationAsRead(notification.id);
+            if (success) {
                 setTimeout(() => {
-                    messageElement.style.display = 'none';
-                    showLoginForm();
-                }, 5000);
-                
-            } catch (error) {
-                console.error('Reset password error:', error);
-                alert('Error: ' + error.message);
+                    this.remove();
+                    updateNotificationCount();
+                }, 300);
+            } else {
+                this.style.opacity = '1';
+                this.style.backgroundColor = '';
             }
+        };
+        
+        const isApprover = notification.approver_uid === currentUser?.id;
+        const now = new Date();
+        const created = new Date(notification.created_at);
+        const timeDiff = Math.floor((now - created) / (1000 * 60));
+        let timeAgo = 'Just now';
+        if (timeDiff >= 60) {
+            const hours = Math.floor(timeDiff / 60);
+            timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        } else if (timeDiff > 0) {
+            timeAgo = `${timeDiff} minute${timeDiff > 1 ? 's' : ''} ago`;
         }
         
-        // Sign out
-        async function signOut() {
-            try {
-                await supabaseClient.auth.signOut();
-                console.log('Signed out successfully');
-            } catch (error) {
-                console.error('Sign out error:', error);
-            }
+        // Status badge & styling
+        let statusBadge = '';
+        let extraStyle = '';
+        if (notification.status === 'approved') {
+            statusBadge = `
+                <span style="
+                    background: #d4edda;
+                    color: #155724;
+                    padding: 3px 10px;
+                    border-radius: 12px;
+                    font-size: 0.8em;
+                    font-weight: 600;
+                    margin-left: 8px;
+                    vertical-align: middle;
+                ">
+                    ✓ Approved
+                </span>
+            `;
+            extraStyle = 'background: #f8fff8; border-left: 4px solid #28a745; opacity: 0.92;';
+        } else if (notification.status === 'pending') {
+            statusBadge = `
+                <span style="
+                    background: #fff3cd;
+                    color: #856404;
+                    padding: 3px 10px;
+                    border-radius: 12px;
+                    font-size: 0.8em;
+                    font-weight: 600;
+                    margin-left: 8px;
+                    vertical-align: middle;
+                ">
+                    Pending Action
+                </span>
+            `;
+            extraStyle = 'background: #fffef5; border-left: 4px solid #ffc107;';
         }
-        
-        // Check auth state
-        async function checkAuthState() {
-            try {
-                const { data: { user } } = await supabaseClient.auth.getUser();
-                
-                if (user) {
-                    handleUserSignedIn(user);
-                    refreshAndSyncFcmToken(user.id);
-                } else {
-                    handleUserSignedOut();
+        div.style.cssText += extraStyle;
+        div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <strong style="color: #333; display: block; margin-bottom: 5px; flex: 1;">
+                    ${notification.title || 'Review Request'}
+                    ${statusBadge}
+                </strong>
+                <small style="color: #999; font-size: 0.8em; white-space: nowrap;">
+                    ${timeAgo}
+                </small>
+            </div>
+            <p style="margin: 5px 0; color: #666; font-size: 0.9em;">
+                ${notification.message || 'No message'}
+            </p>
+            ${notification.drive_link ?
+                `<a href="${notification.drive_link}" target="_blank"
+                   style="color: #D4AF37; text-decoration: none; font-size: 0.9em;
+                          display: inline-block; margin-top: 5px;">
+                   📁 View Folder
+                </a><br>` : ''
+            }
+            <div style="margin-top: 10px;">
+                ${isApprover && notification.status === 'pending' ?
+                    `<button onclick="handleApprove('${notification.id}', '${notification.task_id}')"
+                            style="background: #D4AF37; color: white; border: none; padding: 6px 12px;
+                                   border-radius: 4px; margin-right: 8px; cursor: pointer; font-size: 0.85em;">
+                        Approve
+                    </button>` : ''
                 }
-            } catch (error) {
-                console.error('Check auth state error:', error);
-                handleUserSignedOut();
+                <button onclick="handleComment('${notification.id}', '${notification.task_id}')"
+                        style="background: #f0f0f0; color: #333; border: 1px solid #ddd; padding: 6px 12px;
+                               border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                    Comment
+                </button>
+            </div>
+        `;
+        return div;
+    }
+
+    async function markNotificationAsRead(notificationId) {
+        try {
+            const response = await fetch('https://sudsanzsdppdjcsvsukf.supabase.co/rest/v1/notifications', {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    id: notificationId,
+                    status: 'read',
+                    read_at: new Date().toISOString()
+                })
+            });
+            
+            if (!response.ok) {
+                console.error('Failed to mark as read:', await response.text());
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+            return false;
+        }
+    }
+
+    async function markAllNotificationsAsRead() {
+        if (!currentUser) {
+            alert('Please sign in first');
+            return;
+        }
+        try {
+            // Get all visible (not yet read by this user) notifications
+            const { data: notifications, error: fetchError } = await supabaseClient
+                .from('notifications')
+                .select('id, read_by')
+                .contains('recipients', [currentUser.id])
+                .not('read_by', 'cs', `{${currentUser.id}}`); // not already read by this user
+            
+            if (fetchError) {
+                console.error('Error fetching notifications:', fetchError);
+                return;
+            }
+            
+            if (!notifications || notifications.length === 0) {
+                console.log('No unread notifications to mark');
+                return;
+            }
+            
+            console.log(`Marking ${notifications.length} notifications as read for this user...`);
+            
+            // Update each one individually (append current user to read_by array)
+            for (const notif of notifications) {
+                const currentReaders = notif.read_by || [];
+                if (currentReaders.includes(currentUser.id)) continue; // already read
+                const newReadBy = [...currentReaders, currentUser.id];
+                const { error: updateError } = await supabaseClient
+                    .from('notifications')
+                    .update({ read_by: newReadBy })
+                    .eq('id', notif.id);
+                
+                if (updateError) {
+                    console.error(`Failed to mark ${notif.id} as read:`, updateError);
+                }
+            }
+            
+            // Refresh UI
+            loadExistingNotifications();
+            
+            // Show success
+            showTempMessage('success-banner', `Marked ${notifications.length} notifications as read`, 3000);
+        } catch (error) {
+            console.error('Failed to mark all as read:', error);
+            alert('Error: ' + error.message);
+        }
+    }
+
+    function showBrowserNotification(title, body) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(title, {
+                body: body,
+                icon: 'Picture1.png',
+                tag: 'gpms-notification'
+            });
+        }
+    }
+
+    // ========== FCM FUNCTIONS ==========
+    async function manageFCMToken(userId) {
+        console.log('Starting FCM token management...');
+        
+        // Wait for Firebase to load
+        if (!window.fbMessaging) {
+            console.log('⏳ Waiting for Firebase...');
+            
+            // Try waiting 2 seconds
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            if (!window.fbMessaging) {
+                console.error('❌ Firebase still not available after waiting');
+                if (window.firebaseError) {
+                    console.error('Firebase error:', window.firebaseError);
+                }
+                return null;
             }
         }
         
-        // Handle user signed in
-        // Handle user signed in
-        async function handleUserSignedIn(user) {
-          if (authInitialized) {
+        try {
+            // 1. Get service worker
+            let registration;
+            const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+            const ourRegistration = existingRegistrations.find(
+                reg => reg.scope === 'https://gmpc-abuja-operations.github.io/gpms/'
+            );
+            
+            if (ourRegistration) {
+                registration = ourRegistration;
+                console.log('Using existing service worker registration');
+            } else {
+                registration = await navigator.serviceWorker.register(
+                    '/gpms/firebase-messaging-sw.js',
+                    { scope: '/gpms/', updateViaCache: 'none' }
+                );
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Let SW activate
+                console.log('Created new service worker registration');
+            }
+            
+            // 2. Check permission
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                console.warn('Notification permission denied');
+                return null;
+            }
+            
+            // 3. Get token
+            console.log('Getting FCM token...');
+            const token = await window.fbGetToken(window.fbMessaging, {
+                vapidKey: VAPID_KEY,
+                serviceWorkerRegistration: registration
+            });
+            
+            if (!token) {
+                console.log('No FCM token available');
+                return null;
+            }
+            
+            console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
+            
+            // 4. Handle token refresh via polling
+            console.log('Setting up token refresh polling...');
+            let currentToken = token;
+            const tokenCheckInterval = setInterval(async () => {
+                try {
+                    const newToken = await window.fbGetToken(window.fbMessaging, {
+                        vapidKey: VAPID_KEY,
+                        serviceWorkerRegistration: registration
+                    });
+                    
+                    if (newToken && newToken !== currentToken) {
+                        console.log('🔁 Token changed detected!');
+                        currentToken = newToken;
+                        
+                        const cleanToken = newToken.includes('fcm.googleapis.com')
+                            ? newToken.split('/').pop()
+                            : newToken;
+                        
+                        await supabaseClient
+                            .from('users')
+                            .update({
+                                fcm_token: cleanToken,
+                                push_endpoint: newToken,
+                                token_updated_at: new Date().toISOString()
+                            })
+                            .eq('id', userId);
+                        
+                        console.log('✅ Token updated in database');
+                    }
+                } catch (error) {
+                    console.error('Token check error:', error);
+                }
+            }, 5 * 60 * 1000); // 5 minutes
+            
+            // 5. Process token
+            let tokenType = 'fcm';
+            let cleanToken = token.includes('fcm.googleapis.com')
+                ? token.split('/').pop()
+                : token;
+            
+            // 6. Save to database
+            if (userId) {
+                const { error: updateError } = await supabaseClient
+                    .from('users')
+                    .update({
+                        fcm_token: cleanToken,
+                        push_endpoint: token,
+                        token_type: tokenType,
+                        token_updated_at: new Date().toISOString()
+                    })
+                    .eq('id', userId);
+                
+                if (updateError) {
+                    console.error('Error updating FCM token:', updateError);
+                } else {
+                    console.log('✅ FCM token saved to database');
+                }
+            }
+            
+            return {
+                token: cleanToken,
+                endpoint: token,
+                type: tokenType
+            };
+        } catch (error) {
+            console.error('❌ FCM token management failed:', error.message);
+            console.error('Full error:', error);
+            return null;
+        }
+    }
+
+    async function refreshAndSyncFcmToken(userId) {
+        console.log('Refreshing FCM token...');
+        return await manageFCMToken(userId);
+    }
+
+    async function subscribeToFCM() {
+        console.log('Subscribing to FCM...');
+        if (!currentUser) {
+            console.log('No user logged in, skipping FCM');
+            return null;
+        }
+        return await manageFCMToken(currentUser.id);
+    }
+
+    // ========== AUTH & USER HANDLING ==========
+    async function handleUserSignedIn(user) {
+        if (authInitialized) {
             console.log('Auth already initialized, skipping');
             return;
-          }
-          authInitialized = true;
-
-          console.log('User signed in:', user.email);
-          currentUser = user;
-
-          // ========== FCM Initialization & Subscription ==========
-          const firebaseConfig = {
+        }
+        authInitialized = true;
+        console.log('User signed in:', user.email);
+        currentUser = user;
+        
+        // FCM setup
+        const firebaseConfig = {
             apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
             authDomain: "gpms-notifications.firebaseapp.com",
             projectId: "gpms-notifications",
@@ -988,1325 +1279,998 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
             messagingSenderId: "240580625031",
             appId: "1:240580625031:web:52421c30f5f542dfd0ae22",
             measurementId: "G-D41F7DQVLP"
-          };
-
-          // Initialize Firebase only once
-          if (window.firebaseApp) { 
-            firebase.initializeApp(firebaseConfig);
-          }
-
-            // Wait for service worker to be ready before getting FCM token
-async function initializeFCMWithServiceWorker() {
-  try {
-    // Wait for service worker registration
-    const registration = await navigator.serviceWorker.ready;
-    console.log('Service worker ready:', registration);
-    
-    // Now get FCM token
-    const token = await messaging.getToken();
-    console.log('FCM token after service worker ready:', token);
-    
-    // Save token to Supabase
-    await saveTokenToSupabase(token);
-    
-  } catch (error) {
-    console.error('FCM initialization failed:', error);
-  }
-}
-
-const fcmResult = await manageFCMToken(user.id);
-  
-  if (fcmResult) {
-    console.log('✅ FCM setup complete:', fcmResult.type);
-  } else {
-    console.log('⚠️ FCM setup skipped or failed');
-  }
-            
-          // Subscribe to push notifications (universal method)
-          try {
-            await subscribeToFCM();
-          } catch (err) {
-            console.error("Push subscription failed:", err.message);
-          }
-
-          // ========== Rest of your function ==========
-          // Update UI
-          document.getElementById('show-login-btn').style.display = 'none';
-          document.getElementById('login-form').style.display = 'none';
-          document.getElementById('reset-form').style.display = 'none';
-          document.getElementById('user-info').style.display = 'block';
-
-          const userName = user.user_metadata?.full_name ||
-                          user.email?.split('@')[0] ||
-                          'User';
-          document.getElementById('user-name').textContent = userName;
-
-          // Save/update user in database
-          await saveUserToDatabase(user);
-
-          // Load notifications
-          loadNotifications();
-
-          // Subscribe to realtime updates
-          subscribeToRealtime();
-
-        loadExistingNotifications(); 
-
-          // Show success message
-          showTempMessage('success-banner', `Welcome back, ${userName}!`, 3000);
-        }
-
-        // ========== UNIVERSAL PUSH SUBSCRIPTION FUNCTIONS ==========
-        async function manageFCMToken(userId) {
-  console.log('Starting FCM token management...');
-  
-  // Wait for Firebase to load
-  if (!window.fbMessaging) {
-    console.log('⏳ Waiting for Firebase...');
-    
-    // Try waiting 2 seconds
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    if (!window.fbMessaging) {
-      console.error('❌ Firebase still not available after waiting');
-      if (window.firebaseError) {
-        console.error('Firebase error:', window.firebaseError);
-      }
-      return null;
-    }
-  }
-  
-  try {
-    // 1. Get service worker
-    let registration;
-    const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-    const ourRegistration = existingRegistrations.find(
-      reg => reg.scope === 'https://gmpc-abuja-operations.github.io/gpms/'
-    );
-
-    if (ourRegistration) {
-      registration = ourRegistration;
-      console.log('Using existing service worker registration');
-    } else {
-      registration = await navigator.serviceWorker.register(
-        '/gpms/firebase-messaging-sw.js',
-        { scope: '/gpms/', updateViaCache: 'none' }
-      );
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Let SW activate
-      console.log('Created new service worker registration');
-    }
-
-    // 2. Check permission
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.warn('Notification permission denied');
-      return null;
-    }
-
-    // 3. Get token
-    console.log('Getting FCM token...');
-    const token = await window.fbGetToken(window.fbMessaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: registration
-    });
-
-    if (!token) {
-      console.log('No FCM token available');
-      return null;
-    }
-
-    console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
-
-    // 4. Handle token refresh via polling (since onTokenChanged doesn't exist)
-    console.log('Setting up token refresh polling...');
-    
-    // Store current token
-    let currentToken = token;
-    
-    // Poll for token changes every 5 minutes
-    const tokenCheckInterval = setInterval(async () => {
-      try {
-        const newToken = await window.fbGetToken(window.fbMessaging, {
-          vapidKey: VAPID_KEY,
-          serviceWorkerRegistration: registration
-        });
+        };
         
-        if (newToken && newToken !== currentToken) {
-          console.log('🔁 Token changed detected!');
-          currentToken = newToken;
-          
-          const cleanToken = newToken.includes('fcm.googleapis.com') 
-            ? newToken.split('/').pop() 
-            : newToken;
-          
-          await supabaseClient
-            .from('users')
-            .update({
-              fcm_token: cleanToken,
-              push_endpoint: newToken,
-              token_updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-            
-          console.log('✅ Token updated in database');
+        // Initialize Firebase only once
+        if (window.firebaseApp) {
+            firebase.initializeApp(firebaseConfig);
         }
-      } catch (error) {
-        console.error('Token check error:', error);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-
-    // 5. Process token
-    let tokenType = 'fcm';
-    let cleanToken = token.includes('fcm.googleapis.com') 
-      ? token.split('/').pop() 
-      : token;
-
-    // 6. Save to database
-    if (userId) {
-      const { error: updateError } = await supabaseClient
-        .from('users')
-        .update({
-          fcm_token: cleanToken,
-          push_endpoint: token,
-          token_type: tokenType,
-          token_updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.error('Error updating FCM token:', updateError);
-      } else {
-        console.log('✅ FCM token saved to database');
-      }
+        
+        // Wait for service worker to be ready before getting FCM token
+        async function initializeFCMWithServiceWorker() {
+            try {
+                // Wait for service worker registration
+                const registration = await navigator.serviceWorker.ready;
+                console.log('Service worker ready:', registration);
+                
+                // Now get FCM token
+                const token = await messaging.getToken();
+                console.log('FCM token after service worker ready:', token);
+                
+                // Save token to Supabase
+                await saveTokenToSupabase(token);
+            } catch (error) {
+                console.error('FCM initialization failed:', error);
+            }
+        }
+        
+        const fcmResult = await manageFCMToken(user.id);
+        if (fcmResult) {
+            console.log('✅ FCM setup complete:', fcmResult.type);
+        } else {
+            console.log('⚠️ FCM setup skipped or failed');
+        }
+        
+        // Subscribe to push notifications
+        try {
+            await subscribeToFCM();
+        } catch (err) {
+            console.error("Push subscription failed:", err.message);
+        }
+        
+        // Update UI
+        document.getElementById('show-login-btn').style.display = 'none';
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('reset-form').style.display = 'none';
+        document.getElementById('user-info').style.display = 'block';
+        const userName = user.user_metadata?.full_name ||
+                        user.email?.split('@')[0] ||
+                        'User';
+        document.getElementById('user-name').textContent = userName;
+        
+        // Save/update user in database
+        await saveUserToDatabase(user);
+        
+        // Load & subscribe to notifications **after** everything else
+        await loadNotifications();
+        subscribeToRealtime();
+        loadExistingNotifications();
+        
+        // Show success message
+        showTempMessage('success-banner', `Welcome back, ${userName}!`, 3000);
     }
 
-    return {
-      token: cleanToken,
-      endpoint: token,
-      type: tokenType
-    };
-
-  } catch (error) {
-    console.error('❌ FCM token management failed:', error.message);
-    console.error('Full error:', error);
-    return null;
-  }
-}
-
-// Step 2: refreshAndSyncFcmToken becomes a simple wrapper
-async function refreshAndSyncFcmToken(userId) {
-  console.log('Refreshing FCM token...');
-  return await manageFCMToken(userId);
-}
-
-// Step 3: subscribeToFCM also uses the same function
-async function subscribeToFCM() {
-  console.log('Subscribing to FCM...');
-  if (!currentUser) {
-    console.log('No user logged in, skipping FCM');
-    return null;
-  }
-  return await manageFCMToken(currentUser.id);
-}
-
-        // Helper: Get or create push subscription
-        async function getPushSubscription(registration) {
-          // Check for existing subscription
-          let subscription = await registration.pushManager.getSubscription();
-          
-          if (!subscription) {
-            // Create new subscription
-            const vapidKey = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6Eoxbq';
-            const applicationServerKey = urlBase64ToUint8Array(vapidKey);
-            
-            subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: applicationServerKey
-            });
-            
-            console.log('New push subscription created');
-          } else {
-            console.log('Existing push subscription found');
-          }
-          
-          return subscription;
+    function handleUserSignedOut() {
+        console.log('User signed out');
+        currentUser = null;
+        
+        // Update UI
+        document.getElementById('show-login-btn').style.display = 'block';
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('reset-form').style.display = 'none';
+        document.getElementById('user-info').style.display = 'none';
+        
+        // Unsubscribe from realtime
+        if (notificationsChannel) {
+            supabaseClient.removeChannel(notificationsChannel);
+            notificationsChannel = null;
         }
+        
+        // Clear notifications
+        updateNotificationUI([]);
+        
+        authInitialized = false;
+    }
 
-        // Helper: Save to Supabase
-        async function savePushSubscriptionToSupabase(subscriptionData) {
-          try {
-            // Update existing user record with push data
-            const { error } = await supabaseClient
-              .from('users')
-              .update({
-                fcm_token: subscriptionData.fcm_token,
-                push_endpoint: subscriptionData.push_endpoint,
-                push_keys: subscriptionData.push_keys,
-                token_type: subscriptionData.token_type,
-                token_updated_at: new Date().toISOString()
-              })
-              .eq('id', subscriptionData.user_id);
+    // Show login form
+    function showLoginForm() {
+        console.log('Showing login form');
+        document.getElementById('show-login-btn').style.display = 'none';
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('reset-form').style.display = 'none';
+    }
+
+    // Show password reset form
+    function showPasswordReset() {
+        console.log('Showing password reset form');
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('reset-form').style.display = 'block';
+    }
+
+    // Sign in with email/password
+    async function signInWithEmail() {
+        console.log('Sign in attempted');
+        
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const errorElement = document.getElementById('login-error');
+        
+        // Clear previous errors
+        errorElement.style.display = 'none';
+        errorElement.textContent = '';
+        
+        if (!email || !password) {
+            errorElement.textContent = 'Please enter both email and password';
+            errorElement.style.display = 'block';
+            return;
+        }
+        
+        try {
+            console.log('Attempting sign in with email:', email);
+            
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email.trim(),
+                password: password
+            });
             
             if (error) {
-              console.error('Error saving push subscription:', error);
-              throw error;
+                console.error('Supabase auth error:', error);
+                throw error;
             }
             
-            console.log('Push subscription saved to Users table');
+            console.log('Signed in successfully:', data.user.email);
             
-          } catch (error) {
-            console.error('Failed to save push subscription:', error);
-          }
+            // After successful signInWithPassword
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            console.log('Post-login session:', sessionData);
+            localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessionData.session));
+            
+            // Clear form
+            document.getElementById('login-email').value = '';
+            document.getElementById('login-password').value = '';
+            
+        } catch (error) {
+            console.error('Sign in error:', error);
+            errorElement.textContent = error.message || 'Sign in failed. Please check your credentials.';
+            errorElement.style.display = 'block';
         }
-
-        // Helper: Convert VAPID key
-        function urlBase64ToUint8Array(base64String) {
-          const padding = '='.repeat((4 - base64String.length % 4) % 4);
-          const base64 = (base64String + padding)
-            .replace(/-/g, '+')
-            .replace(/_/g, '/');
-          const rawData = window.atob(base64);
-          const outputArray = new Uint8Array(rawData.length);
-          for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-          }
-          return outputArray;
-        }
-
-        // Handle user signed out
-        function handleUserSignedOut() {
-            console.log('User signed out');
-            currentUser = null;
-            
-            // Update UI
-            document.getElementById('show-login-btn').style.display = 'block';
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('reset-form').style.display = 'none';
-            document.getElementById('user-info').style.display = 'none';
-            
-            // Unsubscribe from realtime
-            if (notificationsChannel) {
-                supabaseClient.removeChannel(notificationsChannel);
-                notificationsChannel = null;
-            }
-            
-            // Clear notifications
-            updateNotificationUI([]);
-            
-            authInitialized = false;
-        }
-        
-        // Save user to Supabase database
-        async function saveUserToDatabase(user) {
-            try {
-                const { error } = await supabaseClient
-                    .from('users')
-                    .upsert({
-                        id: user.id,
-                        email: user.email,
-                        full_name: user.user_metadata?.full_name,
-                        last_sign_in: new Date().toISOString()
-                    }, {
-                        onConflict: 'id'
-                    });
-                    
-                if (error) {
-                    console.error('Error saving user to database:', error);
-                }
-            } catch (error) {
-                console.error('Save user error:', error);
-            }
-        }
-        
-        // Link OneSignal ID to user
-        async function linkOneSignalToUser(userId) {
-  console.log("Attempting to link OneSignal for user:", userId);
-
-  // Wait for SDK to be ready
-  if (typeof OneSignal === 'undefined' || typeof OneSignal.getUserId !== 'function') {
-    console.warn("OneSignal SDK not ready — waiting 3 seconds...");
-    await new Promise(r => setTimeout(r, 3000));
-    if (typeof OneSignal === 'undefined' || typeof OneSignal.getUserId !== 'function') {
-      console.error("OneSignal still not ready — skipping link");
-      return;
     }
-  }
 
-  const oneSignalUserId = await new Promise((resolve) => {
-    let attempts = 0;
-    const maxAttempts = 20; // 10 seconds
-
-    const check = () => {
-      OneSignal.getUserId((id) => {
-        if (id) {
-          console.log("OneSignal ID found:", id);
-          resolve(id);
-        } else if (attempts < maxAttempts) {
-          attempts++;
-          console.log(`No ID yet (attempt ${attempts}/${maxAttempts})`);
-          setTimeout(check, 500);
-        } else {
-          console.warn("Timed out waiting for OneSignal ID");
-          resolve(null);
-        }
-      });
-    };
-
-    check();
-  });
-
-  if (oneSignalUserId) {
-    try {
-      const { error } = await supabaseClient
-        .from('users')
-        .update({ onesignal_id: oneSignalUserId })
-        .eq('id', userId);
-
-      if (error) {
-        console.error("Failed to save OneSignal ID:", error.message);
-      } else {
-        console.log("Successfully linked OneSignal ID:", oneSignalUserId);
-      }
-    } catch (err) {
-      console.error("Supabase error during link:", err);
-    }
-  } else {
-    console.warn("No OneSignal ID after waiting — check if notifications are allowed");
-  }
-}
+    // Reset password
+    async function resetPassword() {
+        const email = document.getElementById('reset-email').value;
+        const messageElement = document.getElementById('reset-message');
         
-        // Get OneSignal user ID
-        async function getOneSignalUserId() {
-            return new Promise((resolve) => {
-                OneSignal.getUserId().then(userId => {
-                    resolve(userId);
-                }).catch(() => resolve(null));
+        if (!email) {
+            alert('Please enter your email address');
+            return;
+        }
+        
+        try {
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email.trim(), {
+                redirectTo: window.location.origin + '/reset-password.html'
             });
-        }
-        
-        // Listen for auth state changes
-        supabaseClient.auth.onAuthStateChange((event, session) => {
-            console.log('Auth state changed:', event);
             
-            if (session?.user) {
-                handleUserSignedIn(session.user);
+            if (error) throw error;
+            
+            // Show success message
+            messageElement.style.display = 'block';
+            document.getElementById('reset-email').value = '';
+            
+            // Hide message after 5 seconds
+            setTimeout(() => {
+                messageElement.style.display = 'none';
+                showLoginForm();
+            }, 5000);
+            
+        } catch (error) {
+            console.error('Reset password error:', error);
+            alert('Error: ' + error.message);
+        }
+    }
+
+    // Sign out
+    async function signOut() {
+        try {
+            await supabaseClient.auth.signOut();
+            console.log('Signed out successfully');
+        } catch (error) {
+            console.error('Sign out error:', error);
+        }
+    }
+
+    // Check auth state
+    async function checkAuthState() {
+        try {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            
+            if (user) {
+                handleUserSignedIn(user);
+                refreshAndSyncFcmToken(user.id);
             } else {
                 handleUserSignedOut();
             }
-        });
-        
-        // ========== EVENT LISTENER SETUP ==========
-        
-        // Wait for DOM to be ready before attaching event listeners
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM loaded, setting up event listeners');
-            
-            // Attach event listeners to buttons
-            const showLoginBtn = document.getElementById('show-login-btn');
-            const signInBtn = document.querySelector('button[onclick="signInWithEmail()"]');
-            const signOutBtn = document.querySelector('button[onclick="signOut()"]');
-            const resetBtn = document.querySelector('button[onclick="resetPassword()"]');
-            
-            if (showLoginBtn) {
-                console.log('Found show-login-btn');
-                showLoginBtn.addEventListener('click', showLoginForm);
-            }
-            
-            if (signInBtn) {
-                console.log('Found sign in button');
-                // Remove old onclick and add event listener
-                signInBtn.removeAttribute('onclick');
-                signInBtn.addEventListener('click', signInWithEmail);
-            }
-            
-            if (signOutBtn) {
-                console.log('Found sign out button');
-                signOutBtn.removeAttribute('onclick');
-                signOutBtn.addEventListener('click', signOut);
-            }
-            
-            if (resetBtn) {
-                console.log('Found reset button');
-                resetBtn.removeAttribute('onclick');
-                resetBtn.addEventListener('click', resetPassword);
-            }
-            
-            // Also attach to the Forgot password link
-            const forgotPasswordLink = document.querySelector('.auth-link[onclick="showPasswordReset()"]');
-            if (forgotPasswordLink) {
-                forgotPasswordLink.removeAttribute('onclick');
-                forgotPasswordLink.addEventListener('click', showPasswordReset);
-            }
-            
-            // Attach to back to login button
-            const backToLoginBtn = document.querySelector('button[onclick="showLoginForm()"]');
-            if (backToLoginBtn) {
-                backToLoginBtn.removeAttribute('onclick');
-                backToLoginBtn.addEventListener('click', showLoginForm);
-            }
-            
-            console.log('Event listeners attached');
-        });
-    </script>
-
-    <!-- ============================================
-         NOTIFICATIONS & REALTIME FUNCTIONS
-    ============================================ -->
-    <script>
-        // Load notifications from Supabase
-        async function loadNotifications() {
-            if (!currentUser) return;
-            
-            try {
-                const { data: notifications, error } = await supabaseClient
-                    .from('notifications')
-                    .select('*')
-                    .contains('recipients', [currentUser.id])
-                    .eq('status', 'pending')
-                    .order('created_at', { ascending: false });
-                    
-                if (error) throw error;
-                
-                updateNotificationUI(notifications || []);
-            } catch (error) {
-                console.error('Load notifications error:', error);
-            }
+        } catch (error) {
+            console.error('Check auth state error:', error);
+            handleUserSignedOut();
         }
-        
-        // Subscribe to realtime updates
-        function subscribeToRealtime() {
-  if (!currentUser || notificationsChannel) return;
-
-  // Correct syntax: cs.{"uuid"} with double quotes inside braces
-  const filterValue = `recipients=cs.{${currentUser.id}}`;
-
-  console.log("Subscribing with multi-recipient filter:", filterValue);
-
-  notificationsChannel = supabaseClient
-    .channel('notifications-channel')
-    .on(
-  'postgres_changes',
-  {
-    event: '*',
-    schema: 'public',
-    table: 'notifications',
-    filter: `recipients=cs.{${currentUser.id}}`
-  },
-  (payload) => {
-    console.log('🔔 REALTIME EVENT:', payload.eventType, payload.new?.title || '(no title)');
-    
-    if (payload.eventType === 'INSERT') {
-      const userHasRead = payload.new.read_by?.includes(currentUser.id) || false;
-      if (!userHasRead && (payload.new.status === 'pending' || payload.new.status === 'approved')) {
-        addNotificationToUI(payload.new);
-        showBrowserNotification(payload.new.title, payload.new.message);
-      }
-    } else if (payload.eventType === 'UPDATE') {
-      const userHasRead = payload.new.read_by?.includes(currentUser.id) || false;
-      
-      if (!userHasRead && (payload.new.status === 'pending' || payload.new.status === 'approved')) {
-        updateNotificationInUI(payload.new);
-      } else {
-        // Hide if user has now read it or status changed to something invisible
-        const elem = document.querySelector(`[data-notification-id="${payload.new.id}"]`);
-        if (elem) {
-          elem.remove();
-          updateNotificationCount();
-        }
-      }
-    }
-  }
-)
-        
-        // Update notification UI
-        function updateNotificationUI(notifications) {
-            const list = document.getElementById('notification-list');
-            const countBadge = document.getElementById('notification-count');
-            
-            if (!list) return;
-            
-            list.innerHTML = '';
-            const pendingNotifications = notifications.filter(n => n.status === 'pending');
-            
-            if (pendingNotifications.length === 0) {
-                list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
-                countBadge.textContent = '0';
-                countBadge.style.display = 'none';
-                return;
-            }
-            
-            pendingNotifications.forEach(notification => {
-                const item = createNotificationElement(notification);
-                list.appendChild(item);
-            });
-            
-            countBadge.textContent = pendingNotifications.length.toString();
-            countBadge.style.display = 'inline';
-        }
-        
-        // Add single notification to UI
-        function addNotificationToUI(notification) {
-            const list = document.getElementById('notification-list');
-            const countBadge = document.getElementById('notification-count');
-            
-            if (!list) return;
-            
-            // Remove "no notifications" message if present
-            if (list.innerHTML.includes('No notifications')) {
-                list.innerHTML = '';
-            }
-            
-            // Add new notification at top
-            const item = createNotificationElement(notification);
-            list.insertBefore(item, list.firstChild);
-            
-            // Update count
-            const currentCount = parseInt(countBadge.textContent) || 0;
-            countBadge.textContent = (currentCount + 1).toString();
-            countBadge.style.display = 'inline';
-            
-            // Show notification panel if not visible
-            const panel = document.getElementById('notification-panel');
-            if (panel.style.display === 'none') {
-                // Make bell pulse to attract attention
-                const bell = document.getElementById('notification-bell');
-                bell.style.animation = 'pulse 1s infinite';
-                setTimeout(() => {
-                    bell.style.animation = '';
-                }, 3000);
-            }
-        }
-        
-        // Create notification element
-        function createNotificationElement(notification) {
-    const div = document.createElement('div');
-    div.className = 'notification-item';
-    div.style.cssText = 'border-bottom:1px solid #eee; padding:15px 0; cursor: pointer;';
-    div.dataset.notificationId = notification.id;
-
-    // Click handler (existing)
-    div.onclick = async function(event) {
-        if (event.target.tagName === 'BUTTON' || event.target.closest('button')) return;
-        this.style.opacity = '0.6';
-        this.style.backgroundColor = '#f9f9f9';
-        const success = await markNotificationAsRead(notification.id);
-        if (success) {
-            setTimeout(() => {
-                this.remove();
-                updateNotificationCount();
-            }, 300);
-        } else {
-            this.style.opacity = '1';
-            this.style.backgroundColor = '';
-        }
-    };
-
-    const isApprover = notification.approver_uid === currentUser?.id;
-    const now = new Date();
-    const created = new Date(notification.created_at);
-    const timeDiff = Math.floor((now - created) / (1000 * 60));
-    let timeAgo = 'Just now';
-    if (timeDiff >= 60) {
-        const hours = Math.floor(timeDiff / 60);
-        timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    } else if (timeDiff > 0) {
-        timeAgo = `${timeDiff} minute${timeDiff > 1 ? 's' : ''} ago`;
     }
 
-    // === NEW: Status badge & styling ===
-    let statusBadge = '';
-    let extraStyle = '';
-
-    if (notification.status === 'approved') {
-        statusBadge = `
-            <span style="
-                background: #d4edda;
-                color: #155724;
-                padding: 3px 10px;
-                border-radius: 12px;
-                font-size: 0.8em;
-                font-weight: 600;
-                margin-left: 8px;
-                vertical-align: middle;
-            ">
-                ✓ Approved
-            </span>
-        `;
-        extraStyle = 'background: #f8fff8; border-left: 4px solid #28a745; opacity: 0.92;';
-    } else if (notification.status === 'pending') {
-        statusBadge = `
-            <span style="
-                background: #fff3cd;
-                color: #856404;
-                padding: 3px 10px;
-                border-radius: 12px;
-                font-size: 0.8em;
-                font-weight: 600;
-                margin-left: 8px;
-                vertical-align: middle;
-            ">
-                Pending Action
-            </span>
-        `;
-        extraStyle = 'background: #fffef5; border-left: 4px solid #ffc107;';
-    }
-
-    div.style.cssText += extraStyle;
-
-    div.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: start;">
-            <strong style="color: #333; display: block; margin-bottom: 5px; flex: 1;">
-                ${notification.title || 'Review Request'}
-                ${statusBadge}
-            </strong>
-            <small style="color: #999; font-size: 0.8em; white-space: nowrap;">
-                ${timeAgo}
-            </small>
-        </div>
-        <p style="margin: 5px 0; color: #666; font-size: 0.9em;">
-            ${notification.message || 'No message'}
-        </p>
-        ${notification.drive_link ?
-            `<a href="${notification.drive_link}" target="_blank"
-               style="color: #D4AF37; text-decoration: none; font-size: 0.9em;
-                      display: inline-block; margin-top: 5px;">
-               📁 View Folder
-            </a><br>` : ''
-        }
-        <div style="margin-top: 10px;">
-            ${isApprover && notification.status === 'pending' ?
-                `<button onclick="handleApprove('${notification.id}', '${notification.task_id}')"
-                        style="background: #D4AF37; color: white; border: none; padding: 6px 12px;
-                               border-radius: 4px; margin-right: 8px; cursor: pointer; font-size: 0.85em;">
-                    Approve
-                </button>` : ''
-            }
-            <button onclick="handleComment('${notification.id}', '${notification.task_id}')"
-                    style="background: #f0f0f0; color: #333; border: 1px solid #ddd; padding: 6px 12px;
-                           border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                Comment
-            </button>
-        </div>
-    `;
-
-    return div;
-}
-
-async function markNotificationAsRead(notificationId) {
-  try {
-    const response = await fetch('https://sudsanzsdppdjcsvsukf.supabase.co/rest/v1/notifications', {
-      method: 'PATCH',
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo',
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        id: notificationId,
-        status: 'read',
-        read_at: new Date().toISOString()
-      })
-    });
-    
-    if (!response.ok) {
-      console.error('Failed to mark as read:', await response.text());
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error('Error marking notification as read:', error);
-    return false;
-  }
-}
-        
-        // Send OneSignal push notification
-        async function sendOneSignalPush(title, message, data = {}) {
-  const oneSignalUserId = await getOneSignalUserId();
-  if (!oneSignalUserId) return;
-
-  const response = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'sendPushNotification',
-      onesignalId: oneSignalUserId,
-      title: title,
-      message: message,
-      data: {
-        ...data,
-        url: "https://gmpc-abuja-operations.github.io/gpms/"  // ← open your app
-      }
-    })
-  });
-
-  console.log('Push sent:', response.ok);
-}
-        
-        // Show browser notification
-        function showBrowserNotification(title, body) {
-            if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification(title, {
-                    body: body,
-                    icon: 'Picture1.png',
-                    tag: 'gpms-notification'
+    // Save user to Supabase database
+    async function saveUserToDatabase(user) {
+        try {
+            const { error } = await supabaseClient
+                .from('users')
+                .upsert({
+                    id: user.id,
+                    email: user.email,
+                    full_name: user.user_metadata?.full_name,
+                    last_sign_in: new Date().toISOString()
+                }, {
+                    onConflict: 'id'
                 });
+                
+            if (error) {
+                console.error('Error saving user to database:', error);
             }
+        } catch (error) {
+            console.error('Save user error:', error);
         }
-        
-        // Handle notification bell click
-        document.getElementById('notification-bell')?.addEventListener('click', () => {
-            const panel = document.getElementById('notification-panel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-            
-            // Mark as read when opening
-            if (panel.style.display === 'block') {
-                const countBadge = document.getElementById('notification-count');
-                countBadge.style.display = 'none';
-            }
-        });
-        
-        // Close notification panel when clicking outside
-        document.addEventListener('click', (event) => {
-            const panel = document.getElementById('notification-panel');
-            const bell = document.getElementById('notification-bell');
-            
-            if (panel && panel.style.display === 'block' && 
-                !panel.contains(event.target) && 
-                !bell.contains(event.target)) {
-                panel.style.display = 'none';
-            }
-        });
-    </script>
+    }
 
-    <!-- ============================================
-         APPROVAL & COMMENT FUNCTIONS
-    ============================================ -->
-    <script>
-        // Handle approve
-       window.handleApprove = async (notificationId, taskId) => {
-    if (!currentUser) {
-        alert('Please sign in first to approve.');
-        return;
-    }
-   
-    if (!confirm('Are you sure you want to approve this task?')) {
-        return;
-    }
-   
-    try {
-        const params = new URLSearchParams({
-            action: 'approveTask',
-            notificationId: notificationId,
-            taskId: taskId,
-            userUid: currentUser.id
-        });
-       
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: params
-        });
-       
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || 'Server error');
+    // ========== FORM & APP FUNCTIONS ==========
+    function initializeApp() {
+        // Set minimum dates
+        const today = new Date().toISOString().split('T')[0];
+        if (document.getElementById('dueDate')) {
+            document.getElementById('dueDate').min = today;
         }
-       
-        const result = await response.json();
-       
-        // Update notification in Supabase
-        const { error } = await supabaseClient
-            .from('notifications')
-            .update({
-                status: 'approved',
-                approved_by: currentUser.id,
-                approved_at: new Date().toISOString()
-            })
-            .eq('id', notificationId);
-           
-        if (error) throw error;
-       
-        // Remove from UI
-        const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
-        if (notificationElement) {
-            notificationElement.remove();
+        if (document.getElementById('nextFollowupDate')) {
+            document.getElementById('nextFollowupDate').min = today;
         }
-       
-        // Update count
-        updateNotificationCount();
-       
-        alert('Task approved successfully!');
-       
-    } catch (error) {
-        console.error('Approve error:', error);
-        alert('Approval failed: ' + error.message);
-    }
-};
         
-        // Handle comment
-        window.handleComment = async (notificationId, taskId) => {
-    if (!currentUser) {
-        alert('Please sign in first to comment.');
-        return;
-    }
-   
-    const comment = prompt('Enter your comment:');
-    if (!comment || comment.trim() === '') return;
-   
-    try {
-        const params = new URLSearchParams({
-            action: 'addComment',
-            notificationId: notificationId,
-            taskId: taskId,
-            comment: comment.trim(),
-            userUid: currentUser.id
-        });
-       
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: params
-        });
-       
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || 'Server error');
-        }
-       
-        // Add comment to Supabase
-        const newComment = {
-            uid: currentUser.id,
-            name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Anonymous',
-            comment: comment.trim(),
-            timestamp: new Date().toISOString()
-        };
-       
-        const { error } = await supabaseClient.rpc('add_notification_comment', {
-            notification_id: notificationId,
-            new_comment: newComment
-        });
-       
-        if (error) throw error;
-       
-        alert('Comment added successfully!');
-       
-    } catch (error) {
-        console.error('Comment error:', error);
-        alert('Failed to add comment: ' + error.message);
-    }
-};
+        // Load tasks for update form
+        loadTasks();
         
-        // Update notification count
-        function updateNotificationCount() {
-            const list = document.getElementById('notification-list');
-            const countBadge = document.getElementById('notification-count');
-            
-            if (!list) return;
-            
-            const notificationCount = list.querySelectorAll('.notification-item').length;
-            countBadge.textContent = notificationCount.toString();
-            
-            if (notificationCount === 0) {
-                countBadge.style.display = 'none';
-                if (!list.innerHTML.includes('No notifications')) {
-                    list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
-                }
-            } else {
-                countBadge.style.display = 'inline';
-            }
-        }
-    </script>
+        // Load draft if exists
+        loadFormDraft();
+        
+        // Initialize keyboard shortcuts
+        initKeyboardShortcuts();
+        
+        // Initialize search functionality
+        initTaskSearch();
+        
+        // Initialize Naira formatting
+        initNairaFormatting();
+    }
 
-    <!-- ============================================
-         YOUR EXISTING FORM HANDLING CODE
-         (Keep all your existing functionality)
-    ============================================ -->
-    <script>
-        // ========== TAB MANAGEMENT ==========
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-panel').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            
-            const tabElement = document.getElementById(tabName + '-tab');
-            const buttonElement = document.querySelector(`button[onclick="showTab('${tabName}')"]`);
-            
-            if (tabElement) tabElement.classList.add('active');
-            if (buttonElement) buttonElement.classList.add('active');
-            
-            // Focus first input in active tab
-            setTimeout(() => {
-                const firstInput = document.querySelector('.tab-panel.active input, .tab-panel.active select');
-                if (firstInput) firstInput.focus();
-            }, 100);
-        }
+    // ========== TAB MANAGEMENT ==========
+    function showTab(tabName) {
+        document.querySelectorAll('.tab-panel').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         
-        // ========== FORM VALIDATION ==========
-        function validateForm(formId) {
-            let isValid = true;
-            const form = document.getElementById(formId);
+        const tabElement = document.getElementById(tabName + '-tab');
+        const buttonElement = document.querySelector(`button[onclick="showTab('${tabName}')"]`);
+        
+        if (tabElement) tabElement.classList.add('active');
+        if (buttonElement) buttonElement.classList.add('active');
+        
+        // Focus first input in active tab
+        setTimeout(() => {
+            const firstInput = document.querySelector('.tab-panel.active input, .tab-panel.active select');
+            if (firstInput) firstInput.focus();
+        }, 100);
+    }
+
+    // ========== FORM VALIDATION ==========
+    function validateForm(formId) {
+        let isValid = true;
+        const form = document.getElementById(formId);
+        
+        // Clear previous errors
+        clearErrors();
+        
+        // Validate all required fields
+        form.querySelectorAll('[required]').forEach(field => {
+            if (!field.value.trim()) {
+                showError(field.id, `${field.labels?.[0]?.textContent || 'This field'} is required`);
+                isValid = false;
+            }
             
-            // Clear previous errors
-            clearErrors();
-            
-            // Validate all required fields
-            form.querySelectorAll('[required]').forEach(field => {
-                if (!field.value.trim()) {
-                    showError(field.id, `${field.labels?.[0]?.textContent || 'This field'} is required`);
+            // Special validation for dates
+            if (field.type === 'date') {
+                if (!validateDate(field.value, field.id)) {
                     isValid = false;
                 }
-                
-                // Special validation for dates
-                if (field.type === 'date') {
-                    if (!validateDate(field.value, field.id)) {
-                        isValid = false;
-                    }
+            }
+            
+            // Special validation for Naira estimate
+            if (field.id === 'nairaEstimateDisplay') {
+                const hiddenField = document.getElementById('nairaEstimate');
+                if (!hiddenField.value || isNaN(hiddenField.value) || parseInt(hiddenField.value) <= 0) {
+                    showError('nairaEstimateDisplay', 'Please enter a valid ₦ estimate');
+                    isValid = false;
                 }
-                
-                // Special validation for Naira estimate
-                if (field.id === 'nairaEstimateDisplay') {
-                    const hiddenField = document.getElementById('nairaEstimate');
-                    if (!hiddenField.value || isNaN(hiddenField.value) || parseInt(hiddenField.value) <= 0) {
-                        showError('nairaEstimateDisplay', 'Please enter a valid ₦ estimate');
-                        isValid = false;
-                    }
-                }
-            });
-            
-            return isValid;
-        }
-        
-        function validateDate(dateString, fieldId) {
-            if (!dateString) return true;
-            
-            const date = new Date(dateString);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            if (date < today) {
-                showError(fieldId, 'Date cannot be in the past');
-                return false;
             }
-            
-            return true;
+        });
+        
+        return isValid;
+    }
+
+    function validateDate(dateString, fieldId) {
+        if (!dateString) return true;
+        
+        const date = new Date(dateString);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (date < today) {
+            showError(fieldId, 'Date cannot be in the past');
+            return false;
         }
         
-        function showError(fieldId, message) {
-            const field = document.getElementById(fieldId);
-            const errorElement = document.getElementById(`${fieldId}-error`);
-            
-            if (field) {
-                field.classList.add('error-field');
-                field.focus();
-            }
-            
-            if (errorElement) {
-                errorElement.textContent = message;
-                errorElement.style.display = 'block';
-            }
+        return true;
+    }
+
+    function showError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        const errorElement = document.getElementById(`${fieldId}-error`);
+        
+        if (field) {
+            field.classList.add('error-field');
+            field.focus();
         }
         
-        function clearErrors() {
-            document.querySelectorAll('.error-field').forEach(field => {
-                field.classList.remove('error-field');
-            });
-            
-            document.querySelectorAll('.error-message').forEach(error => {
-                error.style.display = 'none';
-            });
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+    }
+
+    function clearErrors() {
+        document.querySelectorAll('.error-field').forEach(field => {
+            field.classList.remove('error-field');
+        });
+        
+        document.querySelectorAll('.error-message').forEach(error => {
+            error.style.display = 'none';
+        });
+    }
+
+    // ========== FORM SUBMISSION ==========
+    async function handleSubmit(formId, event) {
+        // SAFE: Handle missing event parameter
+        if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+        } else if (event === undefined) {
+            console.warn('Event parameter was undefined, continuing anyway');
+        } else {
+            console.error('Invalid event parameter:', event);
+            return;
         }
         
-        // ========== FORM SUBMISSION ==========
-        async function handleSubmit(formId, event) {
-    // SAFE: Handle missing event parameter
-    if (event && typeof event.preventDefault === 'function') {
-        event.preventDefault();
-    } else if (event === undefined) {
-        console.warn('Event parameter was undefined, continuing anyway');
-    } else {
-        console.error('Invalid event parameter:', event);
-        return;
-    }
-    
-    // Check if user is authenticated
-    if (!currentUser) {
-        alert('Please sign in to submit forms.');
-        showLoginForm();
-        return;
-    }
-    
-    // Validate form
-    if (!validateForm(formId)) {
-        return;
-    }
-    
-    const form = document.getElementById(formId);
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const loading = document.getElementById('loading');
-    const successBanner = document.getElementById('success-banner');
-    const errorBanner = document.getElementById('error-banner');
-    
-    // Reset classes
-    successBanner.className = 'banner success';
-    errorBanner.className = 'banner error';
-    
-    successBanner.style.display = 'none';
-    errorBanner.style.display = 'none';
-    loading.style.display = 'block';
-    submitBtn.disabled = true;
-    
-    try {
-        // Convert FormData to URL-encoded string
-// Fixed version
-const formData = new FormData(form);
-const urlParams = new URLSearchParams();
-
-for (const [key, value] of formData.entries()) {
-    // Handle array-style field names
-    if (key.endsWith('[]')) {
-        const baseName = key.slice(0, -2);
-        urlParams.append(baseName, value);
-    } else {
-        urlParams.append(key, value);
-    }
-}
-// Convert FormData entries to URLSearchParams
-//formData.forEach((value, key) => {
- // urlParams.append(key, value);
-//});
-
-// Add user ID to params
-if (currentUser) {
-  urlParams.append('userId', currentUser.id);
-  urlParams.append('userEmail', currentUser.email);
-}
-
-// Handle additional reviewers for update form
-if (formId === 'update-form') {
-  const additionalReviewersSelect = document.getElementById('additionalReviewers');
-  if (additionalReviewersSelect) {
-    const selectedValues = Array.from(
-      additionalReviewersSelect.selectedOptions
-    ).map(opt => opt.value);
-    
-    const additionalReviewers = selectedValues.join(',');
-    urlParams.set('additionalReviewers', additionalReviewers);
-  }
-  
-  const statusValue = document.getElementById('status')?.value;
-  if (statusValue === 'ready_for_review' && !urlParams.has('additionalReviewers')) {
-    urlParams.set('additionalReviewers', '');
-  }
-}
-
-const response = await fetch(SCRIPT_URL, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded'  // ← ADD THIS HEADER
-  },
-  body: urlParams.toString(),  // ← URL-encoded string, not FormData
-  mode: 'cors'
-});
+        // Check if user is authenticated
+        if (!currentUser) {
+            alert('Please sign in to submit forms.');
+            showLoginForm();
+            return;
+        }
         
-        // In handleSubmit, replace the if/else block with:
-
-if (response.ok) {
-  const result = await response.json();
-
-  // Flexible success check
-  const isSuccess = 
-    result?.status === 'success' || 
-    result?.message?.includes('successfully') || 
-    result?.taskId || 
-    result?.updatedStatus;
-
-  if (isSuccess) {
-    let successMessage = result.message || '✓ Operation completed successfully!';
-    
-    // Clean up message for display
-    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
-      successMessage = '✓ ' + successMessage;
-    }
-
-    successBanner.className = 'banner success';
-    successBanner.textContent = successMessage;
-    successBanner.style.display = 'block';
-
-    // Clear form, reload tasks, etc.
-    form.reset();
-    if (formId === 'new-form') {
-      localStorage.removeItem('newOpportunityDraft');
-      document.getElementById('draft-notice').style.display = 'none';
-    }
-    if (formId === 'update-form') {
-      await loadTasks();
-    }
-
-    setTimeout(() => successBanner.style.display = 'none', 6000);
-  } else {
-    // Only show real errors
-    const errMsg = result?.message || 'Submission failed - check console/server logs';
-    errorBanner.textContent = `✗ ${errMsg}`;
-    errorBanner.style.display = 'block';
-    console.error('Server returned non-success:', result);
-  }
-} else {
-  throw new Error(`Server HTTP error: ${response.status}`);
-}
+        // Validate form
+        if (!validateForm(formId)) {
+            return;
+        }
         
-    } catch (error) {
+        const form = document.getElementById(formId);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const loading = document.getElementById('loading');
+        const successBanner = document.getElementById('success-banner');
+        const errorBanner = document.getElementById('error-banner');
+        
+        // Reset classes
+        successBanner.className = 'banner success';
         errorBanner.className = 'banner error';
-        errorBanner.textContent = `✗ ${error.message}`;
-        errorBanner.style.display = 'block';
-        console.error('Submission error:', error);
-    } finally {
-        loading.style.display = 'none';
-        submitBtn.disabled = false;
+        
+        successBanner.style.display = 'none';
+        errorBanner.style.display = 'none';
+        loading.style.display = 'block';
+        submitBtn.disabled = true;
+        
+        try {
+            // Convert FormData to URL-encoded string
+            const formData = new FormData(form);
+            const urlParams = new URLSearchParams();
+            for (const [key, value] of formData.entries()) {
+                // Handle array-style field names
+                if (key.endsWith('[]')) {
+                    const baseName = key.slice(0, -2);
+                    urlParams.append(baseName, value);
+                } else {
+                    urlParams.append(key, value);
+                }
+            }
+            
+            // Add user ID to params
+            if (currentUser) {
+                urlParams.append('userId', currentUser.id);
+                urlParams.append('userEmail', currentUser.email);
+            }
+            
+            // Handle additional reviewers for update form
+            if (formId === 'update-form') {
+                const additionalReviewersSelect = document.getElementById('additionalReviewers');
+                if (additionalReviewersSelect) {
+                    const selectedValues = Array.from(
+                        additionalReviewersSelect.selectedOptions
+                    ).map(opt => opt.value);
+                    
+                    const additionalReviewers = selectedValues.join(',');
+                    urlParams.set('additionalReviewers', additionalReviewers);
+                }
+                
+                const statusValue = document.getElementById('status')?.value;
+                if (statusValue === 'ready_for_review' && !urlParams.has('additionalReviewers')) {
+                    urlParams.set('additionalReviewers', '');
+                }
+            }
+            
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: urlParams.toString(),
+                mode: 'cors'
+            });
+            
+            // Handle response
+            if (response.ok) {
+                const result = await response.json();
+                // Flexible success check
+                const isSuccess =
+                    result?.status === 'success' ||
+                    result?.message?.includes('successfully') ||
+                    result?.taskId ||
+                    result?.updatedStatus;
+                
+                if (isSuccess) {
+                    let successMessage = result.message || '✓ Operation completed successfully!';
+                    
+                    // Clean up message for display
+                    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+                        successMessage = '✓ ' + successMessage;
+                    }
+                    successBanner.className = 'banner success';
+                    successBanner.textContent = successMessage;
+                    successBanner.style.display = 'block';
+                    
+                    // Clear form, reload tasks, etc.
+                    form.reset();
+                    if (formId === 'new-form') {
+                        localStorage.removeItem('newOpportunityDraft');
+                        document.getElementById('draft-notice').style.display = 'none';
+                    }
+                    if (formId === 'update-form') {
+                        await loadTasks();
+                    }
+                    setTimeout(() => successBanner.style.display = 'none', 6000);
+                } else {
+                    // Only show real errors
+                    const errMsg = result?.message || 'Submission failed - check console/server logs';
+                    errorBanner.textContent = `✗ ${errMsg}`;
+                    errorBanner.style.display = 'block';
+                    console.error('Server returned non-success:', result);
+                }
+            } else {
+                throw new Error(`Server HTTP error: ${response.status}`);
+            }
+            
+        } catch (error) {
+            errorBanner.className = 'banner error';
+            errorBanner.textContent = `✗ ${error.message}`;
+            errorBanner.style.display = 'block';
+            console.error('Submission error:', error);
+        } finally {
+            loading.style.display = 'none';
+            submitBtn.disabled = false;
+        }
     }
-}
+
+    // ========== TASK LOADING ==========
+    async function loadTasks() {
+        const select = document.getElementById('taskId');
+        if (!select) return;
         
-        // ========== TASK LOADING ==========
-        async function loadTasks() {
-            const select = document.getElementById('taskId');
-            if (!select) return;
+        try {
+            // Show loading state
+            select.classList.add('loading-dropdown');
+            select.disabled = true;
+            select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
             
-            try {
-                // Show loading state
-                select.classList.add('loading-dropdown');
-                select.disabled = true;
-                select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
-                
-                // Call your Apps Script
-                const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
-                    mode: 'cors',
-                    cache: 'no-cache'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-                
-                const tasks = await response.json();
-                
-                // Store all tasks for search
-                allTasks = tasks || [];
-                
-                // Populate dropdown
+            // Call your Apps Script
+            const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+            
+            const tasks = await response.json();
+            
+            // Store all tasks for search
+            allTasks = tasks || [];
+            
+            // Populate dropdown
+            populateTaskDropdown(allTasks);
+            
+        } catch (error) {
+            console.error('Error loading tasks:', error);
+            select.innerHTML = '<option value="">Error loading tasks</option>';
+            
+            // Show error in banner
+            const errorBanner = document.getElementById('error-banner');
+            errorBanner.textContent = 'Failed to load tasks. Check console for details.';
+            errorBanner.style.display = 'block';
+        } finally {
+            if (select) {
+                select.classList.remove('loading-dropdown');
+                select.disabled = false;
+            }
+        }
+    }
+
+    function populateTaskDropdown(tasks) {
+        const select = document.getElementById('taskId');
+        if (!select) return;
+        
+        const searchTerm = document.getElementById('task-search')?.value.toLowerCase() || '';
+        
+        select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
+        
+        if (!tasks || tasks.length === 0) {
+            select.innerHTML += '<option value="">No active tasks found</option>';
+            return;
+        }
+        
+        // Filter tasks based on search
+        const filteredTasks = tasks.filter(task => {
+            if (!searchTerm) return true;
+            const taskText = `${task.clientName} ${task.status} ${task.dueDate}`.toLowerCase();
+            return taskText.includes(searchTerm);
+        });
+        
+        // Add each task to dropdown
+        filteredTasks.forEach(task => {
+            const option = document.createElement('option');
+            option.value = task.id;
+            option.textContent = `${task.clientName} - ${task.status} (Due: ${task.dueDate || 'No date'})`;
+            option.className = 'task-option';
+            select.appendChild(option);
+        });
+        
+        // Show count in search placeholder
+        const searchInput = document.getElementById('task-search');
+        if (searchInput) {
+            searchInput.placeholder = `🔍 Search ${filteredTasks.length} tasks...`;
+        }
+    }
+
+    function initTaskSearch() {
+        const searchInput = document.getElementById('task-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
                 populateTaskDropdown(allTasks);
-                
-            } catch (error) {
-                console.error('Error loading tasks:', error);
-                select.innerHTML = '<option value="">Error loading tasks</option>';
-                
-                // Show error in banner
-                const errorBanner = document.getElementById('error-banner');
-                errorBanner.textContent = 'Failed to load tasks. Check console for details.';
-                errorBanner.style.display = 'block';
-            } finally {
-                if (select) {
-                    select.classList.remove('loading-dropdown');
-                    select.disabled = false;
-                }
-            }
-        }
-        
-        function populateTaskDropdown(tasks) {
-            const select = document.getElementById('taskId');
-            if (!select) return;
-            
-            const searchTerm = document.getElementById('task-search')?.value.toLowerCase() || '';
-            
-            select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
-            
-            if (!tasks || tasks.length === 0) {
-                select.innerHTML += '<option value="">No active tasks found</option>';
-                return;
-            }
-            
-            // Filter tasks based on search
-            const filteredTasks = tasks.filter(task => {
-                if (!searchTerm) return true;
-                const taskText = `${task.clientName} ${task.status} ${task.dueDate}`.toLowerCase();
-                return taskText.includes(searchTerm);
             });
-            
-            // Add each task to dropdown
-            filteredTasks.forEach(task => {
-                const option = document.createElement('option');
-                option.value = task.id;
-                option.textContent = `${task.clientName} - ${task.status} (Due: ${task.dueDate || 'No date'})`;
-                option.className = 'task-option';
-                select.appendChild(option);
-            });
-            
-            // Show count in search placeholder
-            const searchInput = document.getElementById('task-search');
-            if (searchInput) {
-                searchInput.placeholder = `🔍 Search ${filteredTasks.length} tasks...`;
-            }
         }
-        
-        function initTaskSearch() {
-            const searchInput = document.getElementById('task-search');
-            if (searchInput) {
-                searchInput.addEventListener('input', () => {
-                    populateTaskDropdown(allTasks);
-                });
-            }
-        }
-        
-        // ========== FORM DRAFT PERSISTENCE ==========
-        function loadFormDraft() {
-            const draft = localStorage.getItem('newOpportunityDraft');
-            if (draft) {
-                try {
-                    const data = JSON.parse(draft);
-                    Object.keys(data).forEach(key => {
-                        const element = document.querySelector(`[name="${key}"]`);
-                        if (element) {
-                            element.value = data[key];
-                            
-                            // Special handling for Naira estimate
-                            if (key === 'nairaEstimate' && element.id === 'nairaEstimate') {
-                                const displayField = document.getElementById('nairaEstimateDisplay');
-                                if (displayField && data[key]) {
-                                    const numValue = parseInt(data[key]);
-                                    if (!isNaN(numValue)) {
-                                        displayField.value = new Intl.NumberFormat('en-NG').format(numValue);
-                                    }
+    }
+
+    // ========== FORM DRAFT PERSISTENCE ==========
+    function loadFormDraft() {
+        const draft = localStorage.getItem('newOpportunityDraft');
+        if (draft) {
+            try {
+                const data = JSON.parse(draft);
+                Object.keys(data).forEach(key => {
+                    const element = document.querySelector(`[name="${key}"]`);
+                    if (element) {
+                        element.value = data[key];
+                        
+                        // Special handling for Naira estimate
+                        if (key === 'nairaEstimate' && element.id === 'nairaEstimate') {
+                            const displayField = document.getElementById('nairaEstimateDisplay');
+                            if (displayField && data[key]) {
+                                const numValue = parseInt(data[key]);
+                                if (!isNaN(numValue)) {
+                                    displayField.value = new Intl.NumberFormat('en-NG').format(numValue);
                                 }
                             }
                         }
-                    });
-                    
-                    // Show draft notice
-                    document.getElementById('draft-notice').style.display = 'block';
-                    
-                } catch (error) {
-                    console.error('Error loading draft:', error);
-                    localStorage.removeItem('newOpportunityDraft');
+                    }
+                });
+                
+                // Show draft notice
+                document.getElementById('draft-notice').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading draft:', error);
+                localStorage.removeItem('newOpportunityDraft');
+            }
+        }
+    }
+
+    function saveFormDraft() {
+        const form = document.getElementById('new-form');
+        if (!form) return;
+        
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        
+        // Don't save if form is mostly empty
+        const hasContent = Object.values(data).some(value => value && value.trim());
+        if (hasContent) {
+            localStorage.setItem('newOpportunityDraft', JSON.stringify(data));
+        }
+    }
+
+    function clearDraft() {
+        localStorage.removeItem('newOpportunityDraft');
+        const form = document.getElementById('new-form');
+        if (form) form.reset();
+        document.getElementById('draft-notice').style.display = 'none';
+    }
+
+    // ========== PARTNER SECTION FUNCTIONS ==========
+    function togglePartnerSection() {
+        const section = document.getElementById('partner-section');
+        const isVisible = section.style.display !== 'none';
+        section.style.display = isVisible ? 'none' : 'block';
+    }
+
+    function toggleCloseFields() {
+        const status = document.getElementById('finalStatus')?.value;
+        if (!status) return;
+        
+        // Hide all
+        document.getElementById('close-won-fields').style.display = 'none';
+        document.getElementById('close-lost-fields').style.display = 'none';
+        
+        // Show relevant fields
+        if (status === 'won') {
+            document.getElementById('close-won-fields').style.display = 'block';
+        } else if (status === 'lost') {
+            document.getElementById('close-lost-fields').style.display = 'block';
+        }
+    }
+
+    async function submitCloseTask() {
+        const taskSelect = document.getElementById('taskId');
+        const finalStatus = document.getElementById('finalStatus')?.value;
+        
+        if (!taskSelect?.value) {
+            showError('taskId', 'Please select a task first');
+            taskSelect?.focus();
+            return;
+        }
+        
+        if (!finalStatus) {
+            showError('finalStatus', 'Please select an outcome (Won/Lost/No Response)');
+            document.getElementById('finalStatus')?.focus();
+            return;
+        }
+        
+        // Validate won/lost fields
+        if (finalStatus === 'won') {
+            const actualValue = document.getElementById('actualValue')?.value;
+            if (!actualValue || Number(actualValue) <= 0) {
+                showError('actualValue', 'Please enter a valid actual value for Won tasks');
+                return;
+            }
+        }
+        
+        if (finalStatus === 'lost') {
+            const lossReason = document.getElementById('lossReason')?.value;
+            if (!lossReason) {
+                showError('lossReason', 'Please select a loss reason');
+                return;
+            }
+        }
+        
+        // Prepare data
+        const formData = new FormData();
+        formData.append('formType', 'closeTask');
+        formData.append('taskId', taskSelect.value);
+        formData.append('finalStatus', finalStatus);
+        
+        if (finalStatus === 'won') {
+            formData.append('actualValue', document.getElementById('actualValue').value);
+        }
+        
+        if (finalStatus === 'lost') {
+            formData.append('lossReason', document.getElementById('lossReason').value);
+        }
+        
+        // Submit
+        const loading = document.getElementById('loading');
+        const successBanner = document.getElementById('success-banner');
+        const errorBanner = document.getElementById('error-banner');
+        
+        loading.style.display = 'block';
+        successBanner.style.display = 'none';
+        errorBanner.style.display = 'none';
+        
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: formData,
+                mode: 'cors'
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                // Format the message to ensure it has a checkmark
+                let successMessage = result.message;
+                if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
+                    successMessage = '✓ ' + successMessage;
+                }
+                
+                successBanner.className = 'banner success';
+                successBanner.textContent = successMessage;
+                successBanner.style.display = 'block';
+                
+                // Reload tasks and reset form
+                await loadTasks();
+                document.getElementById('finalStatus').value = '';
+                document.getElementById('actualValue').value = '';
+                document.getElementById('lossReason').value = '';
+                document.getElementById('close-won-fields').style.display = 'none';
+                document.getElementById('close-lost-fields').style.display = 'none';
+                
+                // Hide partner section after successful close
+                document.getElementById('partner-section').style.display = 'none';
+                
+                setTimeout(() => {
+                    successBanner.style.display = 'none';
+                }, 6000);
+            } else {
+                throw new Error(result.message || 'Failed to close task');
+            }
+        } catch (error) {
+            console.error('Full error:', error);
+            errorBanner.className = 'banner error';
+            errorBanner.textContent = `✗ ${error.message}`;
+            errorBanner.style.display = 'block';
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    // ========== NAIRA ESTIMATE FORMATTING ==========
+    function initNairaFormatting() {
+        const displayField = document.getElementById('nairaEstimateDisplay');
+        const hiddenField = document.getElementById('nairaEstimate');
+        
+        if (displayField && hiddenField) {
+            // Format as user types
+            displayField.addEventListener('input', function(e) {
+                // Remove all non-digits (commas, spaces, etc.)
+                let rawValue = this.value.replace(/[^\d]/g, '');
+                
+                // Store raw number in hidden field (for form submission)
+                hiddenField.value = rawValue;
+                
+                // Format with commas for display
+                if (rawValue) {
+                    const numValue = parseInt(rawValue);
+                    if (!isNaN(numValue)) {
+                        this.value = new Intl.NumberFormat('en-NG').format(numValue);
+                    }
+                } else {
+                    this.value = '';
+                }
+                
+                // Save draft
+                saveFormDraft();
+            });
+            
+            // Also handle paste
+            displayField.addEventListener('paste', function(e) {
+                setTimeout(() => {
+                    let rawValue = this.value.replace(/[^\d]/g, '');
+                    hiddenField.value = rawValue;
+                    if (rawValue) {
+                        const numValue = parseInt(rawValue);
+                        if (!isNaN(numValue)) {
+                            this.value = new Intl.NumberFormat('en-NG').format(numValue);
+                        }
+                    }
+                    saveFormDraft();
+                }, 10);
+            });
+        }
+    }
+
+    // ========== KEYBOARD SHORTCUTS ==========
+    function initKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl + 1 for New Opportunity tab
+            if (e.ctrlKey && e.key === '1') {
+                e.preventDefault();
+                showTab('new');
+            }
+            
+            // Ctrl + 2 for Update Task tab
+            if (e.ctrlKey && e.key === '2') {
+                e.preventDefault();
+                showTab('update');
+            }
+            
+            // Ctrl + Enter to submit active form
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                const activeTab = document.querySelector('.tab-panel.active');
+                if (activeTab) {
+                    const form = activeTab.querySelector('form');
+                    if (form) {
+                        const submitBtn = form.querySelector('button[type="submit"]');
+                        if (submitBtn && !submitBtn.disabled) {
+                            submitBtn.click();
+                        }
+                    }
                 }
             }
+        });
+    }
+
+    // ========== GOOGLE FORM OPENER ==========
+    function openGoogleFormDirect() {
+        const taskSelect = document.getElementById('taskId');
+        const taskId = taskSelect?.value;
+        
+        if (!taskId) {
+            showError('taskId', 'Please select a task before uploading documents.');
+            taskSelect?.focus();
+            return;
         }
         
-        function saveFormDraft() {
-            const form = document.getElementById('new-form');
-            if (!form) return;
+        // Construct the Google Form URL with pre-filled Task ID
+        const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?usp=pp_url&entry.1694540215=' + encodeURIComponent(taskId);
+        
+        console.log('Opening Google Form for task:', taskId);
+        
+        // Open in new tab
+        window.open(FORM_URL, '_blank', 'noopener,noreferrer');
+    }
+
+    // ========== APPROVAL & COMMENT FUNCTIONS ==========
+    window.handleApprove = async (notificationId, taskId) => {
+        if (!currentUser) {
+            alert('Please sign in first to approve.');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to approve this task?')) {
+            return;
+        }
+        
+        try {
+            const params = new URLSearchParams({
+                action: 'approveTask',
+                notificationId: notificationId,
+                taskId: taskId,
+                userUid: currentUser.id
+            });
             
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: params
+            });
             
-            // Don't save if form is mostly empty
-            const hasContent = Object.values(data).some(value => value && value.trim());
-            if (hasContent) {
-                localStorage.setItem('newOpportunityDraft', JSON.stringify(data));
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Server error');
             }
+            
+            const result = await response.json();
+            
+            // Update notification in Supabase
+            const { error } = await supabaseClient
+                .from('notifications')
+                .update({
+                    status: 'approved',
+                    approved_by: currentUser.id,
+                    approved_at: new Date().toISOString()
+                })
+                .eq('id', notificationId);
+                
+            if (error) throw error;
+            
+            // Remove from UI
+            const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
+            if (notificationElement) {
+                notificationElement.remove();
+            }
+            
+            // Update count
+            updateNotificationCount();
+            
+            alert('Task approved successfully!');
+            
+        } catch (error) {
+            console.error('Approve error:', error);
+            alert('Approval failed: ' + error.message);
+        }
+    };
+
+    window.handleComment = async (notificationId, taskId) => {
+        if (!currentUser) {
+            alert('Please sign in first to comment.');
+            return;
         }
         
-        function clearDraft() {
-            localStorage.removeItem('newOpportunityDraft');
-            const form = document.getElementById('new-form');
-            if (form) form.reset();
-            document.getElementById('draft-notice').style.display = 'none';
+        const comment = prompt('Enter your comment:');
+        if (!comment || comment.trim() === '') return;
+        
+        try {
+            const params = new URLSearchParams({
+                action: 'addComment',
+                notificationId: notificationId,
+                taskId: taskId,
+                comment: comment.trim(),
+                userUid: currentUser.id
+            });
+            
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: params
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Server error');
+            }
+            
+            // Add comment to Supabase
+            const newComment = {
+                uid: currentUser.id,
+                name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Anonymous',
+                comment: comment.trim(),
+                timestamp: new Date().toISOString()
+            };
+            
+            const { error } = await supabaseClient.rpc('add_notification_comment', {
+                notification_id: notificationId,
+                new_comment: newComment
+            });
+            
+            if (error) throw error;
+            
+            alert('Comment added successfully!');
+            
+        } catch (error) {
+            console.error('Comment error:', error);
+            alert('Failed to add comment: ' + error.message);
         }
+    };
+
+    function updateNotificationCount() {
+        const list = document.getElementById('notification-list');
+        const countBadge = document.getElementById('notification-count');
+        
+        if (!list) return;
+        
+        const notificationCount = list.querySelectorAll('.notification-item').length;
+        countBadge.textContent = notificationCount.toString();
+        
+        if (notificationCount === 0) {
+            countBadge.style.display = 'none';
+            if (!list.innerHTML.includes('No notifications')) {
+                list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
+            }
+        } else {
+            countBadge.style.display = 'inline';
+        }
+    }
+
+    // ========== DOM READY & EVENT LISTENERS ==========
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM loaded - initializing app');
+        
+        // Initialize app
+        initializeApp();
         
         // Auto-save draft on input
         document.querySelectorAll('#new-form input, #new-form textarea, #new-form select').forEach(element => {
@@ -2314,452 +2278,96 @@ if (response.ok) {
             element.addEventListener('change', saveFormDraft);
         });
         
-        // ========== EVENT LISTENERS ==========
+        // Request notification permission if not already granted/denied
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        
+        // Attach event listeners to buttons
+        const showLoginBtn = document.getElementById('show-login-btn');
+        const signInBtn = document.querySelector('button[onclick="signInWithEmail()"]');
+        const signOutBtn = document.querySelector('button[onclick="signOut()"]');
+        const resetBtn = document.querySelector('button[onclick="resetPassword()"]');
+        const forgotPasswordLink = document.querySelector('.auth-link[onclick="showPasswordReset()"]');
+        const backToLoginBtn = document.querySelector('button[onclick="showLoginForm()"]');
+        
+        if (showLoginBtn) {
+            console.log('Found show-login-btn');
+            showLoginBtn.addEventListener('click', showLoginForm);
+        }
+        
+        if (signInBtn) {
+            console.log('Found sign in button');
+            signInBtn.removeAttribute('onclick');
+            signInBtn.addEventListener('click', signInWithEmail);
+        }
+        
+        if (signOutBtn) {
+            console.log('Found sign out button');
+            signOutBtn.removeAttribute('onclick');
+            signOutBtn.addEventListener('click', signOut);
+        }
+        
+        if (resetBtn) {
+            console.log('Found reset button');
+            resetBtn.removeAttribute('onclick');
+            resetBtn.addEventListener('click', resetPassword);
+        }
+        
+        if (forgotPasswordLink) {
+            forgotPasswordLink.removeAttribute('onclick');
+            forgotPasswordLink.addEventListener('click', showPasswordReset);
+        }
+        
+        if (backToLoginBtn) {
+            backToLoginBtn.removeAttribute('onclick');
+            backToLoginBtn.addEventListener('click', showLoginForm);
+        }
+        
+        // Attach notification bell click (outside panel)
+        document.getElementById('notification-bell')?.addEventListener('click', () => {
+            const panel = document.getElementById('notification-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+        
+        document.addEventListener('click', (event) => {
+            const panel = document.getElementById('notification-panel');
+            const bell = document.getElementById('notification-bell');
+            if (panel?.style.display === 'block' && 
+                !panel.contains(event.target) && 
+                !bell.contains(event.target)) {
+                panel.style.display = 'none';
+            }
+        });
+        
+        // Form event listeners
         document.getElementById('new-form')?.addEventListener('submit', e => handleSubmit('new-form', e));
         document.getElementById('update-form')?.addEventListener('submit', e => handleSubmit('update-form', e));
         
-        // ========== PARTNER SECTION FUNCTIONS ==========
-        function togglePartnerSection() {
-            const section = document.getElementById('partner-section');
-            const isVisible = section.style.display !== 'none';
-            section.style.display = isVisible ? 'none' : 'block';
-        }
-        
-        function toggleCloseFields() {
-            const status = document.getElementById('finalStatus')?.value;
-            if (!status) return;
-            
-            // Hide all
-            document.getElementById('close-won-fields').style.display = 'none';
-            document.getElementById('close-lost-fields').style.display = 'none';
-            
-            // Show relevant fields
-            if (status === 'won') {
-                document.getElementById('close-won-fields').style.display = 'block';
-            } else if (status === 'lost') {
-                document.getElementById('close-lost-fields').style.display = 'block';
-            }
-        }
-        
-        async function submitCloseTask() {
-            const taskSelect = document.getElementById('taskId');
-            const finalStatus = document.getElementById('finalStatus')?.value;
-            
-            if (!taskSelect?.value) {
-                showError('taskId', 'Please select a task first');
-                taskSelect?.focus();
-                return;
-            }
-            
-            if (!finalStatus) {
-                showError('finalStatus', 'Please select an outcome (Won/Lost/No Response)');
-                document.getElementById('finalStatus')?.focus();
-                return;
-            }
-            
-            // Validate won/lost fields
-            if (finalStatus === 'won') {
-                const actualValue = document.getElementById('actualValue')?.value;
-                if (!actualValue || Number(actualValue) <= 0) {
-                    showError('actualValue', 'Please enter a valid actual value for Won tasks');
-                    return;
-                }
-            }
-            
-            if (finalStatus === 'lost') {
-                const lossReason = document.getElementById('lossReason')?.value;
-                if (!lossReason) {
-                    showError('lossReason', 'Please select a loss reason');
-                    return;
-                }
-            }
-            
-            // Prepare data
-            const formData = new FormData();
-            formData.append('formType', 'closeTask');
-            formData.append('taskId', taskSelect.value);
-            formData.append('finalStatus', finalStatus);
-            
-            if (finalStatus === 'won') {
-                formData.append('actualValue', document.getElementById('actualValue').value);
-            }
-            
-            if (finalStatus === 'lost') {
-                formData.append('lossReason', document.getElementById('lossReason').value);
-            }
-            
-            // Submit
-            const loading = document.getElementById('loading');
-            const successBanner = document.getElementById('success-banner');
-            const errorBanner = document.getElementById('error-banner');
-            
-            loading.style.display = 'block';
-            successBanner.style.display = 'none';
-            errorBanner.style.display = 'none';
-            
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: formData,
-                    mode: 'cors'
-                });
-                
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    // Format the message to ensure it has a checkmark
-                    let successMessage = result.message;
-                    if (!successMessage.includes('✓') && !successMessage.includes('✅')) {
-                        successMessage = '✓ ' + successMessage;
-                    }
-                    
-                    successBanner.className = 'banner success';
-                    successBanner.textContent = successMessage;
-                    successBanner.style.display = 'block';
-                    
-                    // Reload tasks and reset form
-                    await loadTasks();
-                    document.getElementById('finalStatus').value = '';
-                    document.getElementById('actualValue').value = '';
-                    document.getElementById('lossReason').value = '';
-                    document.getElementById('close-won-fields').style.display = 'none';
-                    document.getElementById('close-lost-fields').style.display = 'none';
-                    
-                    // Hide partner section after successful close
-                    document.getElementById('partner-section').style.display = 'none';
-                    
-                    setTimeout(() => {
-                        successBanner.style.display = 'none';
-                    }, 6000);
-                } else {
-                    throw new Error(result.message || 'Failed to close task');
-                }
-            } catch (error) {
-                console.error('Full error:', error);
-                errorBanner.className = 'banner error';
-                errorBanner.textContent = `✗ ${error.message}`;
-                errorBanner.style.display = 'block';
-            } finally {
-                loading.style.display = 'none';
-            }
-        }
-        
-        // ========== NAIRA ESTIMATE FORMATTING ==========
-        function initNairaFormatting() {
-            const displayField = document.getElementById('nairaEstimateDisplay');
-            const hiddenField = document.getElementById('nairaEstimate');
-            
-            if (displayField && hiddenField) {
-                // Format as user types
-                displayField.addEventListener('input', function(e) {
-                    // Remove all non-digits (commas, spaces, etc.)
-                    let rawValue = this.value.replace(/[^\d]/g, '');
-                    
-                    // Store raw number in hidden field (for form submission)
-                    hiddenField.value = rawValue;
-                    
-                    // Format with commas for display
-                    if (rawValue) {
-                        const numValue = parseInt(rawValue);
-                        if (!isNaN(numValue)) {
-                            this.value = new Intl.NumberFormat('en-NG').format(numValue);
-                        }
-                    } else {
-                        this.value = '';
-                    }
-                    
-                    // Save draft
-                    saveFormDraft();
-                });
-                
-                // Also handle paste
-                displayField.addEventListener('paste', function(e) {
-                    setTimeout(() => {
-                        let rawValue = this.value.replace(/[^\d]/g, '');
-                        hiddenField.value = rawValue;
-                        if (rawValue) {
-                            const numValue = parseInt(rawValue);
-                            if (!isNaN(numValue)) {
-                                this.value = new Intl.NumberFormat('en-NG').format(numValue);
-                            }
-                        }
-                        saveFormDraft();
-                    }, 10);
-                });
-            }
-        }
-        
-        // ========== KEYBOARD SHORTCUTS ==========
-        function initKeyboardShortcuts() {
-            document.addEventListener('keydown', (e) => {
-                // Ctrl + 1 for New Opportunity tab
-                if (e.ctrlKey && e.key === '1') {
-                    e.preventDefault();
-                    showTab('new');
-                }
-                
-                // Ctrl + 2 for Update Task tab
-                if (e.ctrlKey && e.key === '2') {
-                    e.preventDefault();
-                    showTab('update');
-                }
-                
-                // Ctrl + Enter to submit active form
-                if (e.ctrlKey && e.key === 'Enter') {
-                    e.preventDefault();
-                    const activeTab = document.querySelector('.tab-panel.active');
-                    if (activeTab) {
-                        const form = activeTab.querySelector('form');
-                        if (form) {
-                            const submitBtn = form.querySelector('button[type="submit"]');
-                            if (submitBtn && !submitBtn.disabled) {
-                                submitBtn.click();
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        // ========== GOOGLE FORM OPENER ==========
-        function openGoogleFormDirect() {
-            const taskSelect = document.getElementById('taskId');
-            const taskId = taskSelect?.value;
-            
-            if (!taskId) {
-                showError('taskId', 'Please select a task before uploading documents.');
-                taskSelect?.focus();
-                return;
-            }
-            
-            // Construct the Google Form URL with pre-filled Task ID
-            const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?usp=pp_url&entry.1694540215=' + encodeURIComponent(taskId);
-            
-            console.log('Opening Google Form for task:', taskId);
-            
-            // Open in new tab
-            window.open(FORM_URL, '_blank', 'noopener,noreferrer');
-        }
-        
-        // ========== HELPER FUNCTIONS ==========
-        function showTempMessage(bannerId, message, duration = 3000) {
-            const banner = document.getElementById(bannerId);
-            if (banner) {
-                banner.textContent = message;
-                banner.style.display = 'block';
-                
-                setTimeout(() => {
-                    banner.style.display = 'none';
-                }, duration);
-            }
-        }
-        
-        // Add CSS for pulse animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes pulse {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.1); }
-                100% { transform: scale(1); }
-            }
-        `;
-        document.head.appendChild(style);
-    </script>
-    <script>
-    // Debugging: Check if elements exist
-    console.log('=== DEBUG INFO ===');
-    console.log('Supabase client initialized:', !!supabaseClient);
-    console.log('Show login button exists:', !!document.getElementById('show-login-btn'));
-    console.log('Login form exists:', !!document.getElementById('login-form'));
-    console.log('Sign in button exists:', !!document.querySelector('button[onclick="signInWithEmail()"]'));
-    
-    // Quick test: Try to manually show login form
-    window.testShowLogin = function() {
-        console.log('Manual test: calling showLoginForm()');
-        showLoginForm();
-    };
-    
-    // Test Supabase connection
-    if (supabaseClient) {
-        supabaseClient.auth.getUser().then(({ data }) => {
-            console.log('Supabase auth check:', data?.user ? 'User exists' : 'No user');
-        }).catch(err => {
-            console.error('Supabase connection error:', err);
+        // Debug current session
+        supabaseClient.auth.getSession().then(({ data, error }) => {
+            console.log('Current session debug:');
+            console.log('Session exists?', !!data.session);
+            console.log('Access token?', data.session?.access_token ? 'yes' : 'no');
+            console.log('Refresh token?', data.session?.refresh_token ? 'yes' : 'no');
+            console.log('User ID?', data.session?.user?.id);
+            if (error) console.error('Get session error:', error);
         });
-    }
-</script>
-    
-<script>
-// Performance monitoring
-const perf = {
-    startTimes: {},
-    mark: function(name) {
-        this.startTimes[name] = performance.now();
-        console.log(`⏱️ ${name} started`);
-    },
-    measure: function(name) {
-        if (this.startTimes[name]) {
-            const duration = performance.now() - this.startTimes[name];
-            console.log(`⏱️ ${name}: ${Math.round(duration)}ms`);
-            return duration;
-        }
-        return 0;
-    }
-};
-
-// Track page load
-perf.mark('pageLoad');
-
-window.addEventListener('load', () => {
-    const totalTime = perf.measure('pageLoad');
-    console.log(`📊 Total page load: ${Math.round(totalTime)}ms`);
-    
-    if (totalTime > 2000) {
-        console.warn('⚠️ Page load is slow. Check for:');
-        console.warn('1. Duplicate code (you have duplicate auth functions)');
-        console.warn('2. Unnecessary API calls (loadTasks on page load)');
-        console.warn('3. Multiple Supabase auth listeners');
-    }
-});
-
-// Track loadTasks performance
-const originalLoadTasks = loadTasks;
-loadTasks = async function() {
-    perf.mark('loadTasks');
-    await originalLoadTasks();
-    perf.measure('loadTasks');
-};
-
-// Track form submissions
-document.querySelectorAll('form').forEach(form => {
-    form.addEventListener('submit', () => {
-        perf.mark('formSubmit');
-        setTimeout(() => {
-            perf.measure('formSubmit');
-        }, 1000);
+        
+        // Auth state listener (keep at end)
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            console.log('Auth state changed:', event);
+            if (session?.user) {
+                handleUserSignedIn(session.user);
+            } else {
+                handleUserSignedOut();
+            }
+        });
+        
+        // Initial auth check
+        checkAuthState();
     });
-});
 </script>
-
-<script>
-async function loadExistingNotifications() {
-  console.log('Loading existing notifications...');
- 
-  try {
-    const { data: notifications, error } = await supabaseClient
-      .from('notifications')
-      .select('*')
-      .contains('recipients', [currentUser.id])
-      .order('created_at', { ascending: false });
-   
-    if (error) {
-      console.error('Error loading notifications:', error);
-      return;
-    }
-   
-    console.log(`Loaded ${notifications.length} existing notifications`);
-   
-    // Show pending AND approved, but only if current user hasn't read it
-    const visibleNotifications = notifications.filter(n => {
-      const userHasRead = n.read_by?.includes(currentUser.id) || false;
-      return !userHasRead && (n.status === 'pending' || n.status === 'approved');
-    });
-   
-    console.log(`Visible notifications after filter: ${visibleNotifications.length}`);
-   
-    updateNotificationUI(visibleNotifications);
-   
-  } catch (error) {
-    console.error('Failed to load notifications:', error);
-  }
-}
-
-// Debug function - run in console
-window.debugNotifications = async function() {
-  console.log('=== DEBUG ===');
-  console.log('Current user:', currentUser?.id);
-  console.log('Supabase client:', !!supabaseClient);
-  
-  const { data } = await supabaseClient
-    .from('notifications')
-    .select('*')
-    .contains('recipients', [currentUser.id]);
-  
-  console.log('Notifications in DB:', data?.length);
-  console.log('First notification:', data?.[0]);
-  
-  loadExistingNotifications();
-};
     
-</script>
-<script>
-    async function markAllNotificationsAsRead() {
-  if (!currentUser) {
-    alert('Please sign in first');
-    return;
-  }
- 
-  try {
-    // Get all visible (not yet read by this user) notifications
-    const { data: notifications, error: fetchError } = await supabaseClient
-      .from('notifications')
-      .select('id, read_by')
-      .contains('recipients', [currentUser.id])
-      .not('read_by', 'cs', `{${currentUser.id}}`);  // not already read by this user
- 
-    if (fetchError) {
-      console.error('Error fetching notifications:', fetchError);
-      return;
-    }
- 
-    if (!notifications || notifications.length === 0) {
-      console.log('No unread notifications to mark');
-      return;
-    }
- 
-    console.log(`Marking ${notifications.length} notifications as read for this user...`);
- 
-    // Update each one individually (append current user to read_by array)
-    for (const notif of notifications) {
-      const currentReaders = notif.read_by || [];
-      if (currentReaders.includes(currentUser.id)) continue; // already read
- 
-      const newReadBy = [...currentReaders, currentUser.id];
- 
-      const { error: updateError } = await supabaseClient
-        .from('notifications')
-        .update({ read_by: newReadBy })
-        .eq('id', notif.id);
- 
-      if (updateError) {
-        console.error(`Failed to mark ${notif.id} as read:`, updateError);
-      }
-    }
- 
-    // Refresh UI
-    loadExistingNotifications();
- 
-    // Show success
-    showTempMessage('success-banner', `Marked ${notifications.length} notifications as read`, 3000);
- 
-  } catch (error) {
-    console.error('Failed to mark all as read:', error);
-    alert('Error: ' + error.message);
-  }
-}
-    
-    // Update UI
-    updateNotificationUI([]);
-    
-    // Show success message
-    showTempMessage('success-banner', `Marked ${notifications.length} notifications as read`, 3000);
-    
-  } catch (error) {
-    console.error('Failed to mark all as read:', error);
-    alert('Error: ' + error.message);
-  }
-}
-</script>
-
 </body>
 </html>
