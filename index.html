@@ -1755,116 +1755,116 @@ async function markNotificationAsRead(notificationId) {
     ============================================ -->
     <script>
         // Handle approve
-        window.handleApprove = async (notificationId, taskId) => {
-            if (!currentUser) {
-                alert('Please sign in first to approve.');
-                return;
-            }
-            
-            if (!confirm('Are you sure you want to approve this task?')) {
-                return;
-            }
-            
-            try {
-                // Call Apps Script
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'approveTask',
-                        notificationId: notificationId,
-                        taskId: taskId,
-                        userUid: currentUser.id
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Server error');
-                }
-                
-                const result = await response.json();
-                
-                // Update notification in Supabase
-                const { error } = await supabaseClient
-                    .from('notifications')
-                    .update({
-                        status: 'approved',
-                        approved_by: currentUser.id,
-                        approved_at: new Date().toISOString()
-                    })
-                    .eq('id', notificationId);
-                    
-                if (error) throw error;
-                
-                // Remove from UI
-                const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
-                if (notificationElement) {
-                    notificationElement.remove();
-                }
-                
-                // Update count
-                updateNotificationCount();
-                
-                alert('Task approved successfully!');
-                
-            } catch (error) {
-                console.error('Approve error:', error);
-                alert('Approval failed: ' + error.message);
-            }
-        };
+       window.handleApprove = async (notificationId, taskId) => {
+    if (!currentUser) {
+        alert('Please sign in first to approve.');
+        return;
+    }
+   
+    if (!confirm('Are you sure you want to approve this task?')) {
+        return;
+    }
+   
+    try {
+        const params = new URLSearchParams({
+            action: 'approveTask',
+            notificationId: notificationId,
+            taskId: taskId,
+            userUid: currentUser.id
+        });
+       
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: params
+        });
+       
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Server error');
+        }
+       
+        const result = await response.json();
+       
+        // Update notification in Supabase
+        const { error } = await supabaseClient
+            .from('notifications')
+            .update({
+                status: 'approved',
+                approved_by: currentUser.id,
+                approved_at: new Date().toISOString()
+            })
+            .eq('id', notificationId);
+           
+        if (error) throw error;
+       
+        // Remove from UI
+        const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
+        if (notificationElement) {
+            notificationElement.remove();
+        }
+       
+        // Update count
+        updateNotificationCount();
+       
+        alert('Task approved successfully!');
+       
+    } catch (error) {
+        console.error('Approve error:', error);
+        alert('Approval failed: ' + error.message);
+    }
+};
         
         // Handle comment
         window.handleComment = async (notificationId, taskId) => {
-            if (!currentUser) {
-                alert('Please sign in first to comment.');
-                return;
-            }
-            
-            const comment = prompt('Enter your comment:');
-            if (!comment || comment.trim() === '') return;
-            
-            try {
-                // Call Apps Script
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'addComment',
-                        notificationId: notificationId,
-                        taskId: taskId,
-                        comment: comment.trim(),
-                        userUid: currentUser.id
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Server error');
-                }
-                
-                // Add comment to Supabase
-                const newComment = {
-                    uid: currentUser.id,
-                    name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Anonymous',
-                    comment: comment.trim(),
-                    timestamp: new Date().toISOString()
-                };
-                
-                const { error } = await supabaseClient.rpc('add_notification_comment', {
-                    notification_id: notificationId,
-                    new_comment: newComment
-                });
-                
-                if (error) throw error;
-                
-                alert('Comment added successfully!');
-                
-            } catch (error) {
-                console.error('Comment error:', error);
-                alert('Failed to add comment: ' + error.message);
-            }
+    if (!currentUser) {
+        alert('Please sign in first to comment.');
+        return;
+    }
+   
+    const comment = prompt('Enter your comment:');
+    if (!comment || comment.trim() === '') return;
+   
+    try {
+        const params = new URLSearchParams({
+            action: 'addComment',
+            notificationId: notificationId,
+            taskId: taskId,
+            comment: comment.trim(),
+            userUid: currentUser.id
+        });
+       
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: params
+        });
+       
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Server error');
+        }
+       
+        // Add comment to Supabase
+        const newComment = {
+            uid: currentUser.id,
+            name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Anonymous',
+            comment: comment.trim(),
+            timestamp: new Date().toISOString()
         };
+       
+        const { error } = await supabaseClient.rpc('add_notification_comment', {
+            notification_id: notificationId,
+            new_comment: newComment
+        });
+       
+        if (error) throw error;
+       
+        alert('Comment added successfully!');
+       
+    } catch (error) {
+        console.error('Comment error:', error);
+        alert('Failed to add comment: ' + error.message);
+    }
+};
         
         // Update notification count
         function updateNotificationCount() {
