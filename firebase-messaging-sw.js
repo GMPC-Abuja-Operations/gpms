@@ -1,9 +1,10 @@
-// firebase-messaging-sw.js - MINIMAL WORKING VERSION
+// firebase-messaging-sw.js - WITH CLIENTS.CLAIM()
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
 
-console.log('[SW] Service worker starting...');
+console.log('[SW] Service worker loading...');
 
+// Initialize Firebase
 firebase.initializeApp({
   apiKey: "AIzaSyBNpWwlJV-2ay7_D8_AXfM2k_WpImVIEYs",
   authDomain: "gpms-notifications.firebaseapp.com",
@@ -16,42 +17,66 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// CRITICAL: This MUST be called for Firebase to handle messages
-messaging.onBackgroundMessage((payload) => {
-  console.log('[SW] Firebase onBackgroundMessage received:', payload);
-  return showNotification(payload);
+// CRITICAL: Force service worker to control clients immediately
+self.addEventListener('activate', event => {
+  console.log('[SW] Activate event - claiming clients');
+  event.waitUntil(clients.claim());
 });
 
-// Also handle standard push events
+// CRITICAL: Skip waiting during install
+self.addEventListener('install', event => {
+  console.log('[SW] Install event - skipping wait');
+  self.skipWaiting();
+});
+
+// Handle ALL push events
 self.addEventListener('push', (event) => {
-  console.log('[SW] Standard push event received');
+  console.log('[SW] Push event triggered - showing notification');
   
   let payload = {};
+  
   try {
-    payload = event.data.json();
-    console.log('[SW] Push payload:', payload);
-  } catch (e) {
-    console.log('[SW] Error parsing push data:', e);
-    payload = { notification: { title: 'GPMS', body: 'New notification' } };
+    if (event.data) {
+      payload = event.data.json();
+      console.log('[SW] Push payload:', payload);
+    } else {
+      console.log('[SW] No data in push event');
+      payload = {
+        notification: {
+          title: 'GPMS',
+          body: 'New notification'
+        }
+      };
+    }
+  } catch (error) {
+    console.error('[SW] Error parsing push data:', error);
+    payload = {
+      notification: {
+        title: 'GPMS',
+        body: 'Notification received'
+      }
+    };
   }
   
+  // ALWAYS show notification
   event.waitUntil(showNotification(payload));
 });
 
-// Unified notification function
+// Simplified notification function
 function showNotification(payload) {
-  console.log('[SW] Creating notification from:', payload);
+  console.log('[SW] showNotification called');
   
+  // Extract title and body from ANY format
   let title = 'GPMS';
-  let body = 'New notification';
+  let body = 'You have a new notification';
   let data = {};
   let icon = 'https://gmpc-abuja-operations.github.io/gpms/Picture1.png';
   
-  // Extract from different payload formats
   if (payload.notification) {
     title = payload.notification.title || title;
     body = payload.notification.body || body;
     data = payload.data || {};
+    icon = payload.notification.icon || icon;
   } else if (payload.message && payload.message.notification) {
     title = payload.message.notification.title || title;
     body = payload.message.notification.body || body;
@@ -62,7 +87,7 @@ function showNotification(payload) {
     data = payload.data;
   }
   
-  console.log('[SW] Showing notification:', { title, body });
+  console.log(`[SW] Showing: "${title}" - "${body}"`);
   
   const options = {
     body: body,
@@ -73,30 +98,35 @@ function showNotification(payload) {
     requireInteraction: true,
     actions: [{
       action: 'open',
-      title: 'Open'
+      title: 'Open GPMS'
     }]
   };
   
   return self.registration.showNotification(title, options)
-    .then(() => console.log('[SW] Notification shown'))
-    .catch(err => console.error('[SW] Error showing notification:', err));
+    .then(() => console.log('[SW] ✅ Notification shown successfully'))
+    .catch(err => console.error('[SW] ❌ Failed to show notification:', err));
 }
 
-// Handle clicks
+// Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked');
   event.notification.close();
   
-  const url = event.notification.data?.url || 'https://gmpc-abuja-operations.github.io/gpms/';
+  const url = event.notification.data?.url || 
+              event.notification.data?.driveLink || 
+              'https://gmpc-abuja-operations.github.io/gpms/';
   
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(clientList => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes('gmpc-abuja-operations.github.io') && 'focus' in client) {
+        if (client.url.includes('gmpc-abuja-operations.github.io/gpms') && 'focus' in client) {
           return client.focus();
         }
       }
-      return clients.openWindow(url);
+      
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
     })
   );
 });
