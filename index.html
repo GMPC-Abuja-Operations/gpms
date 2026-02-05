@@ -995,6 +995,25 @@ localStorage.setItem('sb-sudsanzsdppdjcsvsukf-auth-token', JSON.stringify(sessio
             firebase.initializeApp(firebaseConfig);
           }
 
+            // Wait for service worker to be ready before getting FCM token
+async function initializeFCMWithServiceWorker() {
+  try {
+    // Wait for service worker registration
+    const registration = await navigator.serviceWorker.ready;
+    console.log('Service worker ready:', registration);
+    
+    // Now get FCM token
+    const token = await messaging.getToken();
+    console.log('FCM token after service worker ready:', token);
+    
+    // Save token to Supabase
+    await saveTokenToSupabase(token);
+    
+  } catch (error) {
+    console.error('FCM initialization failed:', error);
+  }
+}
+
 const fcmResult = await manageFCMToken(user.id);
   
   if (fcmResult) {
