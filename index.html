@@ -795,28 +795,28 @@ const firebaseCheck = setInterval(() => {
 
     // ========== NOTIFICATION FUNCTIONS ==========
     async function loadNotifications() {
-        if (!currentUser) return;
+    if (!currentUser) return;
+    
+    try {
+        const { data: notifications, error } = await supabaseClient
+            .from('notifications')
+            .select('*')
+            .contains('recipients', [currentUser.id])
+            .order('created_at', { ascending: false });
         
-        try {
-            const { data: notifications, error } = await supabaseClient
-                .from('notifications')
-                .select('*')
-                .contains('recipients', [currentUser.id])
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
-            
-            // Filter: not read by user AND status is pending or approved
-            const visibleNotifications = notifications.filter(n => {
-                const userHasRead = n.read_by?.includes(currentUser.id) || false;
-                return !userHasRead && (n.status === 'pending' || n.status === 'approved');
-            });
+        if (error) throw error;
+        
+        // Filter: not read by user AND status is pending or approved
+        const visibleNotifications = notifications.filter(n => {
+            const userHasRead = n.read_by?.includes(currentUser.id) || false;
+            return !userHasRead && (n.status === 'pending' || n.status === 'approved');
+        });
 
-            updateNotificationUI(visibleNotifications);
-        } catch (err) {
-            console.error('Load notifications error:', err);
-        }
+        updateNotificationUI(visibleNotifications);
+    } catch (err) {
+        console.error('Load notifications error:', err);
     }
+}
 
     async function loadExistingNotifications() {
         await loadNotifications();
@@ -840,17 +840,22 @@ const firebaseCheck = setInterval(() => {
                             showBrowserNotification(payload.new.title, payload.new.message);
                         }
                     } else if (payload.eventType === 'UPDATE') {
-                        const userHasRead = payload.new.read_by?.includes(currentUser.id) || false;
-                        if (!userHasRead && (payload.new.status === 'pending' || payload.new.status === 'approved')) {
-                            updateNotificationInUI(payload.new);
-                        } else {
-                            const elem = document.querySelector(`[data-notification-id="${payload.new.id}"]`);
-                            if (elem) {
-                                elem.remove();
-                                updateNotificationCount();
-                            }
-                        }
-                    }
+    const userHasRead = payload.new.read_by?.includes(currentUser.id) || false;
+    
+    // If notification is now read by user, remove it from UI
+    if (userHasRead) {
+        const elem = document.querySelector(`[data-notification-id="${payload.new.id}"]`);
+        if (elem) {
+            elem.remove();
+            updateNotificationCount();
+        }
+    } else {
+        // If not read and (pending or approved), update it
+        if (payload.new.status === 'pending' || payload.new.status === 'approved') {
+            updateNotificationInUI(payload.new);
+        }
+    }
+}
                 }
             )
             .subscribe(status => {
@@ -859,43 +864,71 @@ const firebaseCheck = setInterval(() => {
     }
 
     function updateNotificationUI(notifications) {
-        const list = document.getElementById('notification-list');
-        const countBadge = document.getElementById('notification-count');
-        
-        if (!list) return;
-        
-        list.innerHTML = '';
-        const pendingNotifications = notifications.filter(n => n.status === 'pending');
-        
-        if (pendingNotifications.length === 0) {
-            list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
-            countBadge.textContent = '0';
-            countBadge.style.display = 'none';
-            return;
-        }
-        
-        pendingNotifications.forEach(notification => {
-            const item = createNotificationElement(notification);
+    const list = document.getElementById('notification-list');
+    const countBadge = document.getElementById('notification-count');
+    
+    if (!list) return;
+    
+    list.innerHTML = '';
+    
+    // Filter for unread notifications (pending OR approved)
+    const unreadNotifications = notifications.filter(n => {
+        const userHasRead = n.read_by?.includes(currentUser.id) || false;
+        return !userHasRead && (n.status === 'pending' || n.status === 'approved');
+    });
+    
+    if (unreadNotifications.length === 0) {
+        list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
+        countBadge.textContent = '0';
+        countBadge.style.display = 'none';
+        return;
+    }
+    
+    // Display ALL unread notifications (both pending and approved)
+    unreadNotifications.forEach(notification => {
+        const item = createNotificationElement(notification);
+        if (item) {
             list.appendChild(item);
-        });
-        
-        countBadge.textContent = pendingNotifications.length.toString();
+        }
+    });
+    
+    // Update count based on actual items added
+    const actualItemCount = list.querySelectorAll('.notification-item').length;
+    countBadge.textContent = actualItemCount.toString();
+    
+    if (actualItemCount === 0) {
+        countBadge.style.display = 'none';
+        if (!list.innerHTML.includes('No notifications')) {
+            list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
+        }
+    } else {
         countBadge.style.display = 'inline';
     }
+}
 
     function addNotificationToUI(notification) {
-        const list = document.getElementById('notification-list');
-        const countBadge = document.getElementById('notification-count');
-        
-        if (!list) return;
-        
-        // Remove "no notifications" message if present
-        if (list.innerHTML.includes('No notifications')) {
-            list.innerHTML = '';
+    const list = document.getElementById('notification-list');
+    const countBadge = document.getElementById('notification-count');
+    
+    if (!list) return;
+    
+    // Check if user has already read this notification
+    if (currentUser) {
+        const userHasRead = notification.read_by?.includes(currentUser.id) || false;
+        if (userHasRead) {
+            console.log('Skipping already-read notification:', notification.id);
+            return;
         }
-        
-        // Add new notification at top
-        const item = createNotificationElement(notification);
+    }
+    
+    // Remove "no notifications" message if present
+    if (list.innerHTML.includes('No notifications')) {
+        list.innerHTML = '';
+    }
+    
+    // Add new notification at top
+    const item = createNotificationElement(notification);
+    if (item) {
         list.insertBefore(item, list.firstChild);
         
         // Update count
@@ -914,116 +947,125 @@ const firebaseCheck = setInterval(() => {
             }, 3000);
         }
     }
+}
 
     function createNotificationElement(notification) {
-        const div = document.createElement('div');
-        div.className = 'notification-item';
-        div.style.cssText = 'border-bottom:1px solid #eee; padding:15px 0; cursor: pointer;';
-        div.dataset.notificationId = notification.id;
-        
-        // Click handler
-        div.onclick = async function(event) {
-            if (event.target.tagName === 'BUTTON' || event.target.closest('button')) return;
-            this.style.opacity = '0.6';
-            this.style.backgroundColor = '#f9f9f9';
-            const success = await markNotificationAsRead(notification.id);
-            if (success) {
-                setTimeout(() => {
-                    this.remove();
-                    updateNotificationCount();
-                }, 300);
-            } else {
-                this.style.opacity = '1';
-                this.style.backgroundColor = '';
-            }
-        };
-        
-        const isApprover = notification.approver_uid === currentUser?.id;
-        const now = new Date();
-        const created = new Date(notification.created_at);
-        const timeDiff = Math.floor((now - created) / (1000 * 60));
-        let timeAgo = 'Just now';
-        if (timeDiff >= 60) {
-            const hours = Math.floor(timeDiff / 60);
-            timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
-        } else if (timeDiff > 0) {
-            timeAgo = `${timeDiff} minute${timeDiff > 1 ? 's' : ''} ago`;
+    // Check if user has already read this notification
+    if (currentUser) {
+        const userHasRead = notification.read_by?.includes(currentUser.id) || false;
+        if (userHasRead) {
+            return null; // Don't create element for already-read notifications
         }
-        
-        // Status badge & styling
-        let statusBadge = '';
-        let extraStyle = '';
-        if (notification.status === 'approved') {
-            statusBadge = `
-                <span style="
-                    background: #d4edda;
-                    color: #155724;
-                    padding: 3px 10px;
-                    border-radius: 12px;
-                    font-size: 0.8em;
-                    font-weight: 600;
-                    margin-left: 8px;
-                    vertical-align: middle;
-                ">
-                    ✓ Approved
-                </span>
-            `;
-            extraStyle = 'background: #f8fff8; border-left: 4px solid #28a745; opacity: 0.92;';
-        } else if (notification.status === 'pending') {
-            statusBadge = `
-                <span style="
-                    background: #fff3cd;
-                    color: #856404;
-                    padding: 3px 10px;
-                    border-radius: 12px;
-                    font-size: 0.8em;
-                    font-weight: 600;
-                    margin-left: 8px;
-                    vertical-align: middle;
-                ">
-                    Pending Action
-                </span>
-            `;
-            extraStyle = 'background: #fffef5; border-left: 4px solid #ffc107;';
-        }
-        div.style.cssText += extraStyle;
-        div.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-                <strong style="color: #333; display: block; margin-bottom: 5px; flex: 1;">
-                    ${notification.title || 'Review Request'}
-                    ${statusBadge}
-                </strong>
-                <small style="color: #999; font-size: 0.8em; white-space: nowrap;">
-                    ${timeAgo}
-                </small>
-            </div>
-            <p style="margin: 5px 0; color: #666; font-size: 0.9em;">
-                ${notification.message || 'No message'}
-            </p>
-            ${notification.drive_link ?
-                `<a href="${notification.drive_link}" target="_blank"
-                   style="color: #D4AF37; text-decoration: none; font-size: 0.9em;
-                          display: inline-block; margin-top: 5px;">
-                   📁 View Folder
-                </a><br>` : ''
-            }
-            <div style="margin-top: 10px;">
-                ${isApprover && notification.status === 'pending' ?
-                    `<button onclick="handleApprove('${notification.id}', '${notification.task_id}')"
-                            style="background: #D4AF37; color: white; border: none; padding: 6px 12px;
-                                   border-radius: 4px; margin-right: 8px; cursor: pointer; font-size: 0.85em;">
-                        Approve
-                    </button>` : ''
-                }
-                <button onclick="handleComment('${notification.id}', '${notification.task_id}')"
-                        style="background: #f0f0f0; color: #333; border: 1px solid #ddd; padding: 6px 12px;
-                               border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                    Comment
-                </button>
-            </div>
-        `;
-        return div;
     }
+    
+    const div = document.createElement('div');
+    div.className = 'notification-item';
+    div.style.cssText = 'border-bottom:1px solid #eee; padding:15px 0; cursor: pointer;';
+    div.dataset.notificationId = notification.id;
+    
+    // Click handler
+    div.onclick = async function(event) {
+        if (event.target.tagName === 'BUTTON' || event.target.closest('button')) return;
+        this.style.opacity = '0.6';
+        this.style.backgroundColor = '#f9f9f9';
+        const success = await markNotificationAsRead(notification.id);
+        if (success) {
+            setTimeout(() => {
+                this.remove();
+                updateNotificationCount();
+            }, 300);
+        } else {
+            this.style.opacity = '1';
+            this.style.backgroundColor = '';
+        }
+    };
+    
+    const isApprover = notification.approver_uid === currentUser?.id;
+    const now = new Date();
+    const created = new Date(notification.created_at);
+    const timeDiff = Math.floor((now - created) / (1000 * 60));
+    let timeAgo = 'Just now';
+    if (timeDiff >= 60) {
+        const hours = Math.floor(timeDiff / 60);
+        timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else if (timeDiff > 0) {
+        timeAgo = `${timeDiff} minute${timeDiff > 1 ? 's' : ''} ago`;
+    }
+    
+    // Status badge & styling
+    let statusBadge = '';
+    let extraStyle = '';
+    if (notification.status === 'approved') {
+        statusBadge = `
+            <span style="
+                background: #d4edda;
+                color: #155724;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 0.8em;
+                font-weight: 600;
+                margin-left: 8px;
+                vertical-align: middle;
+            ">
+                ✓ Approved
+            </span>
+        `;
+        extraStyle = 'background: #f8fff8; border-left: 4px solid #28a745; opacity: 0.92;';
+    } else if (notification.status === 'pending') {
+        statusBadge = `
+            <span style="
+                background: #fff3cd;
+                color: #856404;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 0.8em;
+                font-weight: 600;
+                margin-left: 8px;
+                vertical-align: middle;
+            ">
+                Pending Action
+            </span>
+        `;
+        extraStyle = 'background: #fffef5; border-left: 4px solid #ffc107;';
+    }
+    div.style.cssText += extraStyle;
+    div.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <strong style="color: #333; display: block; margin-bottom: 5px; flex: 1;">
+                ${notification.title || 'Review Request'}
+                ${statusBadge}
+            </strong>
+            <small style="color: #999; font-size: 0.8em; white-space: nowrap;">
+                ${timeAgo}
+            </small>
+        </div>
+        <p style="margin: 5px 0; color: #666; font-size: 0.9em;">
+            ${notification.message || 'No message'}
+        </p>
+        ${notification.drive_link ?
+            `<a href="${notification.drive_link}" target="_blank"
+               style="color: #D4AF37; text-decoration: none; font-size: 0.9em;
+                      display: inline-block; margin-top: 5px;">
+               📁 View Folder
+            </a><br>` : ''
+        }
+        <div style="margin-top: 10px;">
+            ${isApprover && notification.status === 'pending' ?
+                `<button onclick="handleApprove('${notification.id}', '${notification.task_id}')"
+                        style="background: #D4AF37; color: white; border: none; padding: 6px 12px;
+                               border-radius: 4px; margin-right: 8px; cursor: pointer; font-size: 0.85em;">
+                    Approve
+                </button>` : ''
+            }
+            <button onclick="handleComment('${notification.id}', '${notification.task_id}')"
+                    style="background: #f0f0f0; color: #333; border: 1px solid #ddd; padding: 6px 12px;
+                           border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                Comment
+            </button>
+        </div>
+    `;
+    return div;
+}
 
     async function markNotificationAsRead(notificationId) {
         try {
@@ -1053,56 +1095,81 @@ const firebaseCheck = setInterval(() => {
         }
     }
 
-    async function markAllNotificationsAsRead() {
-        if (!currentUser) {
-            alert('Please sign in first');
+   async function markAllNotificationsAsRead() {
+    if (!currentUser) {
+        alert('Please sign in first');
+        return;
+    }
+    try {
+        // Get all notifications for this user that are not yet marked as read by them
+        const { data: notifications, error: fetchError } = await supabaseClient
+            .from('notifications')
+            .select('id, read_by, recipients, approver_uid, status')
+            .contains('recipients', [currentUser.id]);
+        
+        if (fetchError) {
+            console.error('Error fetching notifications:', fetchError);
             return;
         }
-        try {
-            // Get all visible (not yet read by this user) notifications
-            const { data: notifications, error: fetchError } = await supabaseClient
-                .from('notifications')
-                .select('id, read_by')
-                .contains('recipients', [currentUser.id])
-                .not('read_by', 'cs', `{${currentUser.id}}`); // not already read by this user
-            
-            if (fetchError) {
-                console.error('Error fetching notifications:', fetchError);
-                return;
-            }
-            
-            if (!notifications || notifications.length === 0) {
-                console.log('No unread notifications to mark');
-                return;
-            }
-            
-            console.log(`Marking ${notifications.length} notifications as read for this user...`);
-            
-            // Update each one individually (append current user to read_by array)
-            for (const notif of notifications) {
-                const currentReaders = notif.read_by || [];
-                if (currentReaders.includes(currentUser.id)) continue; // already read
-                const newReadBy = [...currentReaders, currentUser.id];
-                const { error: updateError } = await supabaseClient
-                    .from('notifications')
-                    .update({ read_by: newReadBy })
-                    .eq('id', notif.id);
-                
-                if (updateError) {
-                    console.error(`Failed to mark ${notif.id} as read:`, updateError);
-                }
-            }
-            
-            // Refresh UI
-            loadExistingNotifications();
-            
-            // Show success
-            showTempMessage('success-banner', `Marked ${notifications.length} notifications as read`, 3000);
-        } catch (error) {
-            console.error('Failed to mark all as read:', error);
-            alert('Error: ' + error.message);
+        
+        if (!notifications || notifications.length === 0) {
+            console.log('No notifications found for user');
+            showTempMessage('error-banner', 'No notifications found', 3000);
+            return;
         }
+        
+        // Filter for notifications not yet read by this user
+        const unreadNotifications = notifications.filter(n => {
+            const userHasRead = n.read_by?.includes(currentUser.id) || false;
+            return !userHasRead;
+        });
+        
+        if (unreadNotifications.length === 0) {
+            console.log('No unread notifications to mark');
+            showTempMessage('error-banner', 'No unread notifications found', 3000);
+            return;
+        }
+        
+        console.log(`Marking ${unreadNotifications.length} notifications as read for user ${currentUser.id}...`);
+        
+        // Update each notification
+        for (const notif of unreadNotifications) {
+            const currentReaders = notif.read_by || [];
+            
+            // Add user to read_by array
+            const newReadBy = [...currentReaders, currentUser.id];
+            
+            const { error: updateError } = await supabaseClient
+                .from('notifications')
+                .update({ 
+                    read_by: newReadBy,
+                    // Optionally update status if it's the approver and still pending
+                    ...(notif.approver_uid === currentUser.id && notif.status === 'pending' 
+                        ? { 
+                            status: 'approved', 
+                            approved_by: currentUser.id, 
+                            approved_at: new Date().toISOString() 
+                          }
+                        : {})
+                })
+                .eq('id', notif.id);
+            
+            if (updateError) {
+                console.error(`Failed to mark ${notif.id} as read:`, updateError);
+            }
+        }
+        
+        // Refresh UI
+        await loadNotifications();
+        
+        // Show success
+        showTempMessage('success-banner', `Marked ${unreadNotifications.length} notifications as read`, 3000);
+        
+    } catch (error) {
+        console.error('Failed to mark all as read:', error);
+        showTempMessage('error-banner', 'Error: ' + error.message, 5000);
     }
+}
 
     function showBrowserNotification(title, body) {
         if ('Notification' in window && Notification.permission === 'granted') {
@@ -2247,24 +2314,26 @@ const firebaseCheck = setInterval(() => {
     };
 
     function updateNotificationCount() {
-        const list = document.getElementById('notification-list');
-        const countBadge = document.getElementById('notification-count');
-        
-        if (!list) return;
-        
-        const notificationCount = list.querySelectorAll('.notification-item').length;
-        countBadge.textContent = notificationCount.toString();
-        
-        if (notificationCount === 0) {
-            countBadge.style.display = 'none';
-            if (!list.innerHTML.includes('No notifications')) {
-                list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
-            }
-        } else {
-            countBadge.style.display = 'inline';
+    const list = document.getElementById('notification-list');
+    const countBadge = document.getElementById('notification-count');
+    
+    if (!list) return;
+    
+    // Count actual notification items
+    const notificationCount = list.querySelectorAll('.notification-item').length;
+    
+    if (notificationCount === 0) {
+        countBadge.style.display = 'none';
+        countBadge.textContent = '0';
+        // Ensure "No notifications" message is shown
+        if (!list.innerHTML.includes('No notifications')) {
+            list.innerHTML = '<p style="color: #666; text-align: center;">No notifications</p>';
         }
+    } else {
+        countBadge.textContent = notificationCount.toString();
+        countBadge.style.display = 'inline';
     }
-
+}
     // ========== DOM READY & EVENT LISTENERS ==========
     document.addEventListener('DOMContentLoaded', () => {
         console.log('DOM loaded - initializing app');
