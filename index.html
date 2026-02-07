@@ -1160,8 +1160,6 @@ console.log('Filtered notifications:', {
                 },
                 body: JSON.stringify({
                     id: notificationId,
-                    status: 'read',
-                    read_at: new Date().toISOString()
                 })
             });
             
@@ -2566,58 +2564,38 @@ console.log('Filtered notifications:', {
     }
 }
 
-async function debugUserNotifications() {
-    const userId = currentUser?.id;
-    if (!userId) return;
-    
-    console.log('🔍 DEBUG for user:', userId);
-    
-    const { data: notifications, error } = await supabaseClient
-        .from('notifications')
-        .select('*')
-        .contains('recipients', [userId]);
-    
-    if (error) {
-        console.error('Error:', error);
-        return;
-    }
-    
-    console.log(`Total notifications for user: ${notifications.length}`);
-    
-    notifications.forEach((n, i) => {
-        const readBy = n.read_by || [];
-        const userHasRead = readBy.includes(userId);
-        const validStatus = n.status === 'pending' || n.status === 'approved';
+async function createTestNotification() {
+    try {
+        const testNotification = {
+            title: 'TEST - Should appear in bell',
+            message: 'This is a test notification',
+            status: 'pending',
+            recipients: [currentUser.id],
+            approver_uid: currentUser.id, // You're the approver
+            read_by: [], // EMPTY array - not read yet
+            created_at: new Date().toISOString()
+        };
         
-        console.log(`#${i}:`, {
-            id: n.id.substring(0, 8) + '...',
-            title: n.title,
-            status: n.status,
-            userInRecipients: n.recipients?.includes(userId),
-            read_by: readBy,
-            userHasRead: userHasRead,
-            validStatus: validStatus,
-            shouldShow: !userHasRead && validStatus,
-            reason: !userHasRead ? 'Not read yet' : 'Already read',
-            statusReason: validStatus ? 'Status OK' : `Invalid status: ${n.status}`
-        });
-    });
-    
-    // Check which ones should be visible
-    const shouldShow = notifications.filter(n => {
-        const readBy = n.read_by || [];
-        const userHasRead = readBy.includes(userId);
-        const validStatus = n.status === 'pending' || n.status === 'approved';
-        return !userHasRead && validStatus;
-    });
-    
-    console.log(`Should show ${shouldShow.length} notifications:`);
-    shouldShow.forEach(n => {
-        console.log(`- ${n.title} (${n.status}) - read_by: ${JSON.stringify(n.read_by)}`);
-    });
+        const { data, error } = await supabaseClient
+            .from('notifications')
+            .insert([testNotification]);
+        
+        if (error) throw error;
+        
+        console.log('✅ Test notification created:', data[0]);
+        
+        // Check if it appears
+        setTimeout(() => {
+            loadNotifications();
+            debugUserNotifications();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('❌ Error creating test:', error);
+    }
 }
 
-// Run this from console: debugUserNotifications()
+// Run from console: createTestNotification()
 </script>
     
 </body>
