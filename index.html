@@ -500,18 +500,25 @@ const firebaseCheck = setInterval(() => {
             </div>
             
             <div id="notification-panel" style="display: none;">
-  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #eee;">
-    <h3 style="margin: 0; font-size: 1.1em; color: var(--dark);">Notifications</h3>
-    <button onclick="markAllNotificationsAsRead()" 
-            style="background: #D4AF37; color: white; border: none; padding: 5px 10px; 
-                   border-radius: 3px; font-size: 0.8em; cursor: pointer;">
-      Mark all as read
-    </button>
-    <button onclick="forceLoadNotifications()" 
-        style="background: #6c757d; color: white; border: none; padding: 5px 10px; 
-               border-radius: 3px; font-size: 0.8em; cursor: pointer; margin-left: 5px;">
-  🔄 Refresh
-</button>
+  <div style="display: flex; justify-content: space-between; align-items: center; 
+              padding: 12px 15px; border-bottom: 1px solid #eee; background: #f9f9f9;">
+    <h3 style="margin: 0; font-size: 1.1em; color: var(--dark); font-weight: 600;">
+      🔔 Notifications
+    </h3>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="forceLoadNotifications()" 
+              style="background: #6c757d; color: white; border: none; padding: 6px 12px;
+                     border-radius: 4px; font-size: 0.8em; cursor: pointer; 
+                     display: flex; align-items: center; gap: 4px;">
+        <span>↻</span> Refresh
+      </button>
+      <button onclick="markAllNotificationsAsRead()" 
+              style="background: #D4AF37; color: white; border: none; padding: 6px 12px;
+                     border-radius: 4px; font-size: 0.8em; cursor: pointer;
+                     display: flex; align-items: center; gap: 4px;">
+        <span>✓</span> Mark all read
+      </button>
+    </div>
   </div>
   <div id="notification-list" style="max-height: 400px; overflow-y: auto; padding: 0 15px;">
     <p style="color: #666; text-align: center; padding: 20px 0;">No notifications</p>
@@ -767,7 +774,7 @@ const firebaseCheck = setInterval(() => {
     const SUPABASE_URL = 'https://sudsanzsdppdjcsvsukf.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo';
     const ONESIGNAL_APP_ID = '179a1072-ca8a-4e68-8d61-d3419d7d5138';
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-jFzpABlOwINRyWw4u9JSxLSjPwy7c3IT8hBfSZkzZF_I5geeSqmLutcXvDecFgMu/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzmIMv8S23Qw_h6HYRZVGruXGEahv8qmaNa4nRkgQUig5kfLY18R6UvMuyZgNtigneK/exec';
     const VAPID_KEY = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ';
     
     // ========== GLOBAL VARIABLES ==========
