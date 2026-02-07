@@ -2551,34 +2551,25 @@ const firebaseCheck = setInterval(() => {
     }
 }
 
-async function debugNotificationData() {
+async function analyzeNotifications() {
     if (!currentUser) return;
     
-    console.log('=== 🔍 DEBUG NOTIFICATION DATA ===');
-    console.log('User ID:', currentUser.id);
+    console.log('🔍 ANALYZING NOTIFICATIONS FOR USER:', currentUser.id);
     
-    // Check what's in the database
-    const { data, error } = await supabaseClient
+    const { data: allNotifications, error } = await supabaseClient
         .from('notifications')
         .select('*')
-        .limit(10);
+        .order('created_at', { ascending: false });
     
     if (error) {
-        console.error('Error fetching notifications:', error);
+        console.error('Error:', error);
         return;
     }
     
-    console.log('All notifications in database:', data);
-    
-    // Check notifications for current user
-    const userNotifications = data.filter(n => 
-        n.recipients?.includes(currentUser.id)
-    );
-    
-    console.log('Notifications for current user:', userNotifications);
-    
-    userNotifications.forEach((n, i) => {
-        console.log(`Notification ${i}:`, {
+    // Log ALL notifications
+    console.log('📊 ALL NOTIFICATIONS IN SYSTEM:');
+    allNotifications.forEach((n, i) => {
+        console.log(`#${i}:`, {
             id: n.id,
             title: n.title,
             status: n.status,
@@ -2586,11 +2577,35 @@ async function debugNotificationData() {
             read_by: n.read_by,
             approver_uid: n.approver_uid,
             created_at: n.created_at,
-            isForUser: n.recipients?.includes(currentUser.id),
-            isReadByUser: n.read_by?.includes(currentUser.id)
+            hasReadBy: !!n.read_by,
+            readByType: typeof n.read_by,
+            readByLength: n.read_by?.length || 0
+        });
+    });
+    
+    // Check which ones should appear for current user
+    const userNotifications = allNotifications.filter(n => 
+        n.recipients?.includes(currentUser.id)
+    );
+    
+    console.log('👤 NOTIFICATIONS WHERE USER IS IN RECIPIENTS:', userNotifications.length);
+    userNotifications.forEach((n, i) => {
+        console.log(`User notification #${i}:`, {
+            id: n.id,
+            title: n.title,
+            status: n.status,
+            recipients: n.recipients,
+            read_by: n.read_by,
+            approver_uid: n.approver_uid,
+            userInRecipients: n.recipients?.includes(currentUser.id),
+            isReadByUser: n.read_by?.includes(currentUser.id),
+            shouldShow: !n.read_by?.includes(currentUser.id) && 
+                       (n.status === 'pending' || n.status === 'approved')
         });
     });
 }
+
+// Call this from console: analyzeNotifications()
 </script>
     
 </body>
