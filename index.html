@@ -812,10 +812,27 @@ const firebaseCheck = setInterval(() => {
         if (error) throw error;
         
         // Filter: not read by user AND status is pending or approved
-        const visibleNotifications = notifications.filter(n => {
-            const userHasRead = n.read_by?.includes(currentUser.id) || false;
-            return !userHasRead && (n.status === 'pending' || n.status === 'approved');
-        });
+const visibleNotifications = notifications.filter(n => {
+    // Handle null read_by - treat as empty array
+    const readByArray = n.read_by || [];
+    const userHasRead = readByArray.includes(currentUser.id);
+    
+    // Check status (only show pending or approved)
+    const validStatus = n.status === 'pending' || n.status === 'approved';
+    
+    return !userHasRead && validStatus;
+});
+
+console.log('Filtered notifications:', {
+    total: notifications.length,
+    visible: visibleNotifications.length,
+    details: visibleNotifications.map(n => ({
+        id: n.id,
+        status: n.status,
+        read_by: n.read_by,
+        userHasRead: (n.read_by || []).includes(currentUser.id)
+    }))
+});
 
         updateNotificationUI(visibleNotifications);
     } catch (err) {
@@ -1017,11 +1034,9 @@ const firebaseCheck = setInterval(() => {
 
     function createNotificationElement(notification) {
     // Check if user has already read this notification
-    if (currentUser) {
-        const userHasRead = notification.read_by?.includes(currentUser.id) || false;
-        if (userHasRead) {
-            return null; // Don't create element for already-read notifications
-        }
+    const readByArray = notification.read_by || [];
+    if (currentUser && readByArray.includes(currentUser.id)) {
+        return null; // Don't create element for already-read notifications
     }
     
     const div = document.createElement('div');
@@ -2551,61 +2566,58 @@ const firebaseCheck = setInterval(() => {
     }
 }
 
-async function analyzeNotifications() {
-    if (!currentUser) return;
+async function debugUserNotifications() {
+    const userId = currentUser?.id;
+    if (!userId) return;
     
-    console.log('🔍 ANALYZING NOTIFICATIONS FOR USER:', currentUser.id);
+    console.log('🔍 DEBUG for user:', userId);
     
-    const { data: allNotifications, error } = await supabaseClient
+    const { data: notifications, error } = await supabaseClient
         .from('notifications')
         .select('*')
-        .order('created_at', { ascending: false });
+        .contains('recipients', [userId]);
     
     if (error) {
         console.error('Error:', error);
         return;
     }
     
-    // Log ALL notifications
-    console.log('📊 ALL NOTIFICATIONS IN SYSTEM:');
-    allNotifications.forEach((n, i) => {
+    console.log(`Total notifications for user: ${notifications.length}`);
+    
+    notifications.forEach((n, i) => {
+        const readBy = n.read_by || [];
+        const userHasRead = readBy.includes(userId);
+        const validStatus = n.status === 'pending' || n.status === 'approved';
+        
         console.log(`#${i}:`, {
-            id: n.id,
+            id: n.id.substring(0, 8) + '...',
             title: n.title,
             status: n.status,
-            recipients: n.recipients,
-            read_by: n.read_by,
-            approver_uid: n.approver_uid,
-            created_at: n.created_at,
-            hasReadBy: !!n.read_by,
-            readByType: typeof n.read_by,
-            readByLength: n.read_by?.length || 0
+            userInRecipients: n.recipients?.includes(userId),
+            read_by: readBy,
+            userHasRead: userHasRead,
+            validStatus: validStatus,
+            shouldShow: !userHasRead && validStatus,
+            reason: !userHasRead ? 'Not read yet' : 'Already read',
+            statusReason: validStatus ? 'Status OK' : `Invalid status: ${n.status}`
         });
     });
     
-    // Check which ones should appear for current user
-    const userNotifications = allNotifications.filter(n => 
-        n.recipients?.includes(currentUser.id)
-    );
+    // Check which ones should be visible
+    const shouldShow = notifications.filter(n => {
+        const readBy = n.read_by || [];
+        const userHasRead = readBy.includes(userId);
+        const validStatus = n.status === 'pending' || n.status === 'approved';
+        return !userHasRead && validStatus;
+    });
     
-    console.log('👤 NOTIFICATIONS WHERE USER IS IN RECIPIENTS:', userNotifications.length);
-    userNotifications.forEach((n, i) => {
-        console.log(`User notification #${i}:`, {
-            id: n.id,
-            title: n.title,
-            status: n.status,
-            recipients: n.recipients,
-            read_by: n.read_by,
-            approver_uid: n.approver_uid,
-            userInRecipients: n.recipients?.includes(currentUser.id),
-            isReadByUser: n.read_by?.includes(currentUser.id),
-            shouldShow: !n.read_by?.includes(currentUser.id) && 
-                       (n.status === 'pending' || n.status === 'approved')
-        });
+    console.log(`Should show ${shouldShow.length} notifications:`);
+    shouldShow.forEach(n => {
+        console.log(`- ${n.title} (${n.status}) - read_by: ${JSON.stringify(n.read_by)}`);
     });
 }
 
-// Call this from console: analyzeNotifications()
+// Run this from console: debugUserNotifications()
 </script>
     
 </body>
