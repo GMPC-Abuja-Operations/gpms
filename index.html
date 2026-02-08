@@ -2571,38 +2571,69 @@ console.log('Filtered notifications:', {
     }
 }
 
-async function createTestNotification() {
-    try {
-        const testNotification = {
-            title: 'TEST - Should appear in bell',
-            message: 'This is a test notification',
-            status: 'pending',
-            recipients: [currentUser.id],
-            approver_uid: currentUser.id, // You're the approver
-            read_by: [], // EMPTY array - not read yet
-            created_at: new Date().toISOString()
-        };
+async function findTheBug() {
+    console.log('🔍 FINDING THE BUG...');
+    
+    // 1. Get current user
+    console.log('Current user ID:', currentUser.id);
+    
+    // 2. Get ALL notifications
+    const { data: allNotifications, error } = await supabaseClient
+        .from('notifications')
+        .select('*');
+    
+    if (error) {
+        console.error('Error:', error);
+        return;
+    }
+    
+    console.log(`Total notifications: ${allNotifications.length}`);
+    
+    // 3. Check EVERY notification
+    allNotifications.forEach((n, index) => {
+        const hasCurrentUser = n.recipients && n.recipients.includes(currentUser.id);
         
-        const { data, error } = await supabaseClient
-            .from('notifications')
-            .insert([testNotification]);
+        if (hasCurrentUser) {
+            console.log(`\n🎯 FOUND NOTIFICATION FOR CURRENT USER (#${index}):`);
+            console.log('ID:', n.id);
+            console.log('Title:', n.title);
+            console.log('Status:', n.status);
+            console.log('Recipients:', n.recipients);
+            console.log('Read_by:', n.read_by || 'null');
+            
+            // Why isn't it showing?
+            const readByArray = n.read_by || [];
+            const userHasRead = readByArray.includes(currentUser.id);
+            const validStatus = n.status === 'pending' || n.status === 'approved';
+            
+            if (userHasRead) {
+                console.log('❌ REASON: User has already read this (in read_by array)');
+            } else if (!validStatus) {
+                console.log(`❌ REASON: Status is "${n.status}", needs "pending" or "approved"`);
+            } else {
+                console.log('✅ SHOULD BE SHOWING! Bug in frontend logic.');
+            }
+        }
+    });
+    
+    // 4. If none found, the user ID is wrong
+    const userNotifications = allNotifications.filter(n => 
+        n.recipients && n.recipients.includes(currentUser.id)
+    );
+    
+    if (userNotifications.length === 0) {
+        console.log('\n🚨 CRITICAL: No notifications have current user in recipients!');
+        console.log('Check:');
+        console.log('1. Is currentUser.id correct?', currentUser.id);
+        console.log('2. Do any notifications exist?');
         
-        if (error) throw error;
-        
-        console.log('✅ Test notification created:', data[0]);
-        
-        // Check if it appears
-        setTimeout(() => {
-            loadNotifications();
-            debugUserNotifications();
-        }, 1000);
-        
-    } catch (error) {
-        console.error('❌ Error creating test:', error);
+        // Show what recipients look like
+        console.log('\nSample recipient arrays:');
+        allNotifications.slice(0, 3).forEach(n => {
+            console.log('Recipients:', n.recipients);
+        });
     }
 }
-
-// Run from console: createTestNotification()
 </script>
     
 </body>
