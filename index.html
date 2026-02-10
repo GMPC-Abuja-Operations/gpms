@@ -2685,7 +2685,23 @@ function openUploadForm(taskId) {
             }
         });
 
-        document.getElementById('my-tasks-btn').addEventListener('click', openMyTasks);
+        document.addEventListener('DOMContentLoaded', () => {
+    const myTasksBtn = document.getElementById('my-tasks-btn');
+    if (myTasksBtn) {
+        myTasksBtn.addEventListener('click', openMyTasks);
+        console.log('My Tasks button listener attached ✅');
+    } else {
+        console.error('My Tasks button NOT FOUND in DOM');
+    }
+
+    // also log when modal is found
+    const modal = document.getElementById('my-tasks-modal');
+    if (modal) {
+        console.log('Modal element found ✅');
+    } else {
+        console.error('my-tasks-modal NOT FOUND in DOM');
+    }
+});
         
         // Form event listeners
         document.getElementById('new-form')?.addEventListener('submit', e => handleSubmit('new-form', e));
@@ -2958,6 +2974,16 @@ function openCloseWithTask(taskId) {
         }
     }, 300);
 }
+
+// Last thing – attach button listener
+const btn = document.getElementById('my-tasks-btn');
+if (btn) {
+    btn.addEventListener('click', openMyTasks);
+    console.log('My Tasks listener attached (late binding)');
+} else {
+    console.warn('my-tasks-btn still not found at the end');
+}
+    
 </script>
     
 </body>
