@@ -2840,53 +2840,69 @@ async function findTheBug() {
 }
     // Open My Tasks modal
 function openMyTasks() {
+    console.log('My Tasks button WAS CLICKED!');          // ← must appear in console when you click
+
     const modal = document.getElementById('my-tasks-modal');
+    if (!modal) {
+        console.error('Modal element #my-tasks-modal NOT FOUND in DOM');
+        return;
+    }
+
+    console.log('Modal found, setting display to flex');
     modal.style.display = 'flex';
-    loadMyTasks(); // defined below
+
+    // Also log if loading starts
+    const loading = document.getElementById('my-tasks-loading');
+    if (loading) {
+        console.log('Showing loading spinner');
+        loading.style.display = 'block';
+    }
+
+    // Call the actual load function
+    console.log('Starting loadMyTasks()...');
+    loadMyTasks();
 }
 
-// Close modal
-document.getElementById('close-my-tasks').onclick = function() {
-    document.getElementById('my-tasks-modal').style.display = 'none';
-};
-
-// Close when clicking outside
-document.getElementById('my-tasks-modal').onclick = function(e) {
-    if (e.target === this) {
-        this.style.display = 'none';
-    }
-};
-
-// Add keyboard escape
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        document.getElementById('my-tasks-modal').style.display = 'none';
-    }
-});
-
     async function loadMyTasks() {
+    console.log('loadMyTasks() STARTED');
+
     if (!currentUser?.email) {
+        console.warn('No user email — cannot load tasks');
         alert('Please sign in to view your tasks.');
         return;
     }
 
+    console.log('User email:', currentUser.email);
+    console.log('Current staff code:', currentUserStaffCode);
+
     const loading = document.getElementById('my-tasks-loading');
-    loading.style.display = 'block';
+    if (loading) loading.style.display = 'block';
 
     try {
-        const res = await fetch(`${SCRIPT_URL}?action=getMyTasks&staffCode=${encodeURIComponent(currentUserStaffCode)}`);
-        if (!res.ok) throw new Error('Failed to load tasks');
-        
+        const url = `${SCRIPT_URL}?action=getMyTasks&staffCode=${encodeURIComponent(currentUserStaffCode)}`;
+        console.log('Fetching from:', url);
+
+        const res = await fetch(url, { mode: 'cors' });
+        console.log('Fetch response status:', res.status);
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`HTTP ${res.status}: ${text}`);
+        }
+
         const tasks = await res.json();
+        console.log('Received tasks:', tasks);
 
         renderMyTasks(tasks);
     } catch (err) {
-        console.error('My tasks error:', err);
-        document.getElementById('no-tasks-message').innerHTML = 
-            '<p style="color:var(--danger)">Could not load tasks right now. Please try again later.</p>';
-        document.getElementById('no-tasks-message').style.display = 'block';
+        console.error('My tasks load failed:', err);
+        const noTasksMsg = document.getElementById('no-tasks-message');
+        if (noTasksMsg) {
+            noTasksMsg.innerHTML = `<p style="color:var(--danger)">Error loading tasks: ${err.message}</p>`;
+            noTasksMsg.style.display = 'block';
+        }
     } finally {
-        loading.style.display = 'none';
+        if (loading) loading.style.display = 'none';
     }
 }
 
