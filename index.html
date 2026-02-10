@@ -2907,15 +2907,38 @@ function openMyTasks() {
 }
 
 function renderMyTasks(tasks) {
-    // Use staff_code instead of name
+    console.log('Rendering tasks, count:', tasks.length);
+
     const drafting = tasks.filter(t => t.assignedStaffCode === currentUserStaffCode);
     const followup = tasks.filter(t => t.followupPersonCode === currentUserStaffCode);
+
+    console.log('Drafting tasks:', drafting.length);
+    console.log('Follow-up tasks:', followup.length);
 
     renderSection('drafting', drafting);
     renderSection('followup', followup);
 
-    document.getElementById('no-tasks-message').style.display =
-        (drafting.length + followup.length === 0) ? 'block' : 'none';
+    const noTasksMsg = document.getElementById('no-tasks-message');
+    if (noTasksMsg) {
+        if (drafting.length + followup.length === 0) {
+            noTasksMsg.style.display = 'block';
+            // Make it more visible temporarily for testing
+            noTasksMsg.style.fontSize = '1.4rem';
+            noTasksMsg.style.color = 'var(--danger)';
+            noTasksMsg.style.padding = '40px';
+            noTasksMsg.innerHTML = `
+                <p style="font-size:1.5rem; margin-bottom:20px; color:#c62828;">
+                    No tasks assigned to you right now
+                </p>
+                <p>You will see tasks here once you are set as Primary Consultant or Relationship Manager.</p>
+                <p style="font-size:0.95rem; margin-top:20px; color:#666;">
+                    (Checked for staff code: <strong>${currentUserStaffCode}</strong>)
+                </p>
+            `;
+        } else {
+            noTasksMsg.style.display = 'none';
+        }
+    }
 }
 function renderSection(sectionId, taskList) {
     const section = document.getElementById(`${sectionId}-section`);
