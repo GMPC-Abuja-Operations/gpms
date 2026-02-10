@@ -422,108 +422,6 @@ const firebaseCheck = setInterval(() => {
         .notification-item:last-child {
             border-bottom: none;
         }
-        .modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(4px);
-}
-
-.modal-content {
-    background: white;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 1100px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    border: 1px solid var(--border);
-    position: relative;
-}
-
-.modal-header {
-    padding: 20px 28px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--light);
-}
-
-.modal-header h2 {
-    margin: 0;
-    color: var(--dark);
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 2rem;
-    color: var(--gray);
-    cursor: pointer;
-    line-height: 1;
-}
-
-.close-btn:hover {
-    color: var(--danger);
-}
-
-.modal-body {
-    padding: 24px;
-}
-
-.task-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 16px 0 32px;
-}
-
-.task-table th, .task-table td {
-    padding: 14px 12px;
-    text-align: left;
-    border-bottom: 1px solid #eee;
-}
-
-.task-table th {
-    background: #f9f9f9;
-    font-weight: 600;
-    color: var(--dark);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.task-table tr:hover {
-    background: rgba(212,175,85,0.08);
-}
-
-.urgency-high    { background: #ffebee !important; color: #c62828; }
-.urgency-medium  { background: #fff3e0 !important; color: #ef6c00; }
-.urgency-low     { background: #e8f5e9 !important; color: #2e7d32; }
-
-.action-btn {
-    padding: 8px 14px;
-    margin: 0 6px 6px 0;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-}
-
-.action-btn.update   { background: var(--primary); color: var(--dark); }
-.action-btn.upload   { background: #4a90e2; color: white; }
-.action-btn.close    { background: #e74c3c; color: white; }
-.action-btn.view     { background: #7f8c8d; color: white; }
-
-.action-btn:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-}
     </style>
 </head>
 <body>
@@ -626,10 +524,6 @@ const firebaseCheck = setInterval(() => {
     <p style="color: #666; text-align: center; padding: 20px 0;">No notifications</p>
   </div>
 </div>
-            <!-- Add this inside header, after notification-bell -->
-<button id="my-tasks-btn" class="auth-button" style="margin-left: 16px; background: var(--primary); color: var(--dark);">
-    📋 View My Tasks
-</button>
         </header>
         
         <!-- ========== TAB NAVIGATION ========== -->
@@ -796,58 +690,6 @@ const firebaseCheck = setInterval(() => {
                           Confirm Close Task
                         </button>
                       </div>
-                    <!-- My Tasks Modal -->
-<div id="my-tasks-modal" class="modal" style="display:none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>My Tasks</h2>
-            <button id="close-my-tasks" class="close-btn">×</button>
-        </div>
-        
-        <div class="modal-body">
-            <div id="my-tasks-loading" class="loading">Loading your tasks…</div>
-            
-            <div id="drafting-section" style="display:none;">
-                <h3>My Drafting Tasks</h3>
-                <table id="drafting-table" class="task-table">
-                    <thead>
-                        <tr>
-                            <th>Task ID</th>
-                            <th>Client</th>
-                            <th>Due</th>
-                            <th>Status</th>
-                            <th>Urgency</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-            
-            <div id="followup-section" style="display:none;">
-                <h3>My Follow-up Tasks</h3>
-                <table id="followup-table" class="task-table">
-                    <thead>
-                        <tr>
-                            <th>Task ID</th>
-                            <th>Client</th>
-                            <th>Due</th>
-                            <th>Status</th>
-                            <th>Urgency</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-            
-            <div id="no-tasks-message" style="display:none; text-align:center; padding:60px 20px; color:#666;">
-                <p style="font-size:1.3rem; margin-bottom:16px;">No active tasks assigned to you right now.</p>
-                <p>You will see tasks here once you are assigned as Primary Consultant or Relationship Manager.</p>
-            </div>
-        </div>
-    </div>
-</div>
                     </div>
                     
                     <!-- Status Update -->
@@ -941,8 +783,6 @@ const firebaseCheck = setInterval(() => {
     let notificationsChannel = null;
     let allTasks = [];
     let authInitialized = false;
-    let currentUserName = '';
-    let currentUserStaffCode = '';
 
     // ========== SUPABASE & AUTH ==========
     // Initialize Supabase immediately
@@ -1582,21 +1422,6 @@ console.log('Filtered notifications:', {
         authInitialized = true;
         console.log('User signed in:', user.email);
         currentUser = user;
-
-// ── If you want to be extra safe, fetch it from the users table
-// (recommended if metadata might not be up-to-date)
-const { data: userRecord, error } = await supabaseClient
-    .from('users')
-    .select('staff_code')
-    .eq('id', user.id)
-    .single();
-
-if (error) {
-    console.warn('Could not fetch staff_code:', error);
-} else if (userRecord?.staff_code) {
-    currentUserStaffCode = userRecord.staff_code;
-    console.log('Loaded staff_code:', currentUserStaffCode);
-}
         
         // FCM setup
         const firebaseConfig = {
@@ -2467,17 +2292,6 @@ if (error) {
         window.open(FORM_URL, '_blank', 'noopener,noreferrer');
     }
 
-function openUploadForm(taskId) {
-    if (!taskId) {
-        showError('taskId', 'No task selected for upload.');
-        return;
-    }
-    
-    const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSe_106ge71JIgvIhzFLiOCf-WMkIB0qb4OboHz3pBWEke_PhA/viewform?usp=pp_url&entry.1694540215=' + encodeURIComponent(taskId);
-    
-    window.open(FORM_URL, '_blank', 'noopener,noreferrer');
-}
-    
     // ========== APPROVAL & COMMENT FUNCTIONS ==========
     window.handleApprove = async (notificationId, taskId) => {
         if (!currentUser) {
@@ -2684,24 +2498,6 @@ function openUploadForm(taskId) {
                 panel.style.display = 'none';
             }
         });
-
-        document.addEventListener('DOMContentLoaded', () => {
-    const myTasksBtn = document.getElementById('my-tasks-btn');
-    if (myTasksBtn) {
-        myTasksBtn.addEventListener('click', openMyTasks);
-        console.log('My Tasks button listener attached ✅');
-    } else {
-        console.error('My Tasks button NOT FOUND in DOM');
-    }
-
-    // also log when modal is found
-    const modal = document.getElementById('my-tasks-modal');
-    if (modal) {
-        console.log('Modal element found ✅');
-    } else {
-        console.error('my-tasks-modal NOT FOUND in DOM');
-    }
-});
         
         // Form event listeners
         document.getElementById('new-form')?.addEventListener('submit', e => handleSubmit('new-form', e));
@@ -2838,191 +2634,6 @@ async function findTheBug() {
         });
     }
 }
-    // Open My Tasks modal
-function openMyTasks() {
-    console.log('My Tasks button WAS CLICKED!');          // ← must appear in console when you click
-
-    const modal = document.getElementById('my-tasks-modal');
-    if (!modal) {
-        console.error('Modal element #my-tasks-modal NOT FOUND in DOM');
-        return;
-    }
-
-    console.log('Modal found, setting display to flex');
-    modal.style.display = 'flex';
-
-    // Also log if loading starts
-    const loading = document.getElementById('my-tasks-loading');
-    if (loading) {
-        console.log('Showing loading spinner');
-        loading.style.display = 'block';
-    }
-
-    // Call the actual load function
-    console.log('Starting loadMyTasks()...');
-    loadMyTasks();
-}
-
-    async function loadMyTasks() {
-    console.log('loadMyTasks() STARTED');
-
-    if (!currentUser?.email) {
-        console.warn('No user email — cannot load tasks');
-        alert('Please sign in to view your tasks.');
-        return;
-    }
-
-    console.log('User email:', currentUser.email);
-    console.log('Current staff code:', currentUserStaffCode);
-
-    const loading = document.getElementById('my-tasks-loading');
-    if (loading) loading.style.display = 'block';
-
-    try {
-        const url = `${SCRIPT_URL}?action=getMyTasks&staffCode=${encodeURIComponent(currentUserStaffCode)}`;
-        console.log('Fetching from:', url);
-
-        const res = await fetch(url, { mode: 'cors' });
-        console.log('Fetch response status:', res.status);
-
-        if (!res.ok) {
-            const text = await res.text();
-            throw new Error(`HTTP ${res.status}: ${text}`);
-        }
-
-        const tasks = await res.json();
-        console.log('Received tasks:', tasks);
-
-        renderMyTasks(tasks);
-    } catch (err) {
-        console.error('My tasks load failed:', err);
-        const noTasksMsg = document.getElementById('no-tasks-message');
-        if (noTasksMsg) {
-            noTasksMsg.innerHTML = `<p style="color:var(--danger)">Error loading tasks: ${err.message}</p>`;
-            noTasksMsg.style.display = 'block';
-        }
-    } finally {
-        if (loading) loading.style.display = 'none';
-    }
-}
-
-function renderMyTasks(tasks) {
-    console.log('Rendering tasks, count:', tasks.length);
-
-    const drafting = tasks.filter(t => t.assignedStaffCode === currentUserStaffCode);
-    const followup = tasks.filter(t => t.followupPersonCode === currentUserStaffCode);
-
-    console.log('Drafting tasks:', drafting.length);
-    console.log('Follow-up tasks:', followup.length);
-
-    renderSection('drafting', drafting);
-    renderSection('followup', followup);
-
-    const noTasksMsg = document.getElementById('no-tasks-message');
-    if (noTasksMsg) {
-        if (drafting.length + followup.length === 0) {
-            noTasksMsg.style.display = 'block';
-            // Make it more visible temporarily for testing
-            noTasksMsg.style.fontSize = '1.4rem';
-            noTasksMsg.style.color = 'var(--danger)';
-            noTasksMsg.style.padding = '40px';
-            noTasksMsg.innerHTML = `
-                <p style="font-size:1.5rem; margin-bottom:20px; color:#c62828;">
-                    No tasks assigned to you right now
-                </p>
-                <p>You will see tasks here once you are set as Primary Consultant or Relationship Manager.</p>
-                <p style="font-size:0.95rem; margin-top:20px; color:#666;">
-                    (Checked for staff code: <strong>${currentUserStaffCode}</strong>)
-                </p>
-            `;
-        } else {
-            noTasksMsg.style.display = 'none';
-        }
-    }
-}
-function renderSection(sectionId, taskList) {
-    const section = document.getElementById(`${sectionId}-section`);
-    const tbody = document.querySelector(`#${sectionId}-table tbody`);
-    tbody.innerHTML = '';
-
-    if (taskList.length === 0) {
-        section.style.display = 'none';
-        return;
-    }
-
-    section.style.display = 'block';
-
-    taskList.forEach(task => {
-        const urgency = getUrgencyClass(task.dueDate, task.daysSinceUpdate);
-        
-        const tr = document.createElement('tr');
-        tr.className = urgency.className;
-        tr.innerHTML = `
-            <td><strong>${task.id}</strong></td>
-            <td>${task.clientName}</td>
-            <td>${task.dueDate || '—'}</td>
-            <td>${task.status}</td>
-            <td>${urgency.label}</td>
-            <td>
-                <button class="action-btn update" onclick="openUpdateWithTask('${task.id}')">Update</button>
-                <button class="action-btn upload" onclick="openUploadForm('${task.id}')">Upload</button>
-                ${task.followupPerson === currentUserName ? 
-                  `<button class="action-btn close" onclick="openCloseWithTask('${task.id}')">Close</button>` : ''}
-                <button class="action-btn view" onclick="window.open('${task.folderUrl || '#'}','_blank')">View Folder</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function getUrgencyClass(dueDateStr, daysSinceUpdate) {
-    if (!dueDateStr) return { label: '—', className: '' };
-    
-    const due = new Date(dueDateStr);
-    const today = new Date();
-    const daysLeft = Math.ceil((due - today) / (86400000));
-
-    if (daysLeft < 0)   return { label: 'Overdue', className: 'urgency-high' };
-    if (daysLeft <= 3)  return { label: `Due in ${daysLeft} day${daysLeft===1?'':'s'}`, className: 'urgency-medium' };
-    if (daysSinceUpdate > 14) return { label: `Stale (${daysSinceUpdate}d)`, className: 'urgency-medium' };
-    
-    return { label: 'On track', className: 'urgency-low' };
-}
-    function openUpdateWithTask(taskId) {
-    document.getElementById('my-tasks-modal').style.display = 'none';
-    showTab('update');
-    setTimeout(() => {
-        const select = document.getElementById('taskId');
-        if (select) {
-            select.value = taskId;
-            select.dispatchEvent(new Event('change'));
-        }
-    }, 300);
-}
-
-function openCloseWithTask(taskId) {
-    document.getElementById('my-tasks-modal').style.display = 'none';
-    showTab('update');
-    setTimeout(() => {
-        const select = document.getElementById('taskId');
-        if (select) {
-            select.value = taskId;
-            document.getElementById('partner-section').style.display = 'block';
-            // Optionally scroll to it
-            document.getElementById('partner-section').scrollIntoView({behavior: 'smooth'});
-        }
-    }, 300);
-}
-
-// Last thing – attach button listener
-const btn = document.getElementById('my-tasks-btn');
-if (btn) {
-    btn.addEventListener('click', openMyTasks);
-    console.log('My Tasks listener attached (late binding)');
-} else {
-    console.warn('my-tasks-btn still not found at the end');
-}
-    
 </script>
     
 </body>
