@@ -555,6 +555,7 @@ const firebaseCheck = setInterval(() => {
                         <input type="text" id="clientName" name="clientName" required 
                                placeholder="e.g., ABC Corp">
                         <span class="error-message" id="clientName-error">Client name is required</span>
+                        <datalist id="client-suggestions"></datalist>
                     </div>
                     <div>
                         <label for="source">Opportunity Source:*</label>
@@ -2569,6 +2570,20 @@ console.log('Filtered notifications:', {
         console.error('❌ Force load error:', err);
         showTempMessage('error-banner', 'Error loading notifications', 3000);
     }
+}
+
+    async function loadClientSuggestions() {
+  try {
+    const response = await fetch(`${SCRIPT_URL}?action=getClients`);
+    const clients = await response.json();
+    
+    const datalist = document.getElementById('client-suggestions');
+    datalist.innerHTML = clients.map(client => 
+      `<option value="${client}">${client}</option>`
+    ).join('');
+  } catch (error) {
+    console.error('Error loading client suggestions:', error);
+  }
 }
 
 async function findTheBug() {
