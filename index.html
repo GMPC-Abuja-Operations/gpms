@@ -2572,17 +2572,69 @@ console.log('Filtered notifications:', {
     }
 }
 
-    async function loadClientSuggestions() {
+    // Replace your loadClientSuggestions with this debug version:
+async function loadClientSuggestions() {
+  console.log('🚀 Loading client suggestions...');
+  
   try {
-    const response = await fetch(`${SCRIPT_URL}?action=getClients`);
+    console.log('📡 Fetching from:', `${SCRIPT_URL}?action=getClients`);
+    
+    const response = await fetch(`${SCRIPT_URL}?action=getClients`, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-cache'
+    });
+    
+    console.log('📨 Response status:', response.status);
+    console.log('📨 Response OK?', response.ok);
+    
+    if (!response.ok) {
+      console.error('❌ HTTP error:', response.status, response.statusText);
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
     const clients = await response.json();
+    console.log('📦 Raw response:', clients);
+    console.log('📦 Type:', typeof clients);
+    console.log('📦 Is array?', Array.isArray(clients));
+    console.log('📦 Length:', clients?.length);
+    console.log('📦 First 5:', clients?.slice(0, 5));
     
     const datalist = document.getElementById('client-suggestions');
-    datalist.innerHTML = clients.map(client => 
-      `<option value="${client}">${client}</option>`
+    console.log('🎯 Datalist element:', datalist);
+    
+    if (!datalist) {
+      console.error('❌ Could not find datalist element with id "client-suggestions"');
+      return;
+    }
+    
+    if (!clients || clients.length === 0) {
+      console.warn('⚠️ No clients returned from API');
+      datalist.innerHTML = '<option value="No clients found">';
+      return;
+    }
+    
+    // Build options
+    const options = clients.map(client => 
+      `<option value="${client.replace(/"/g, '&quot;')}">${client}</option>`
     ).join('');
+    
+    console.log('📝 Generated HTML:', options.substring(0, 200) + '...');
+    
+    datalist.innerHTML = options;
+    console.log('✅ Datalist populated with', clients.length, 'options');
+    
+    // Verify datalist has children
+    console.log('🔍 Datalist children count:', datalist.children.length);
+    
   } catch (error) {
-    console.error('Error loading client suggestions:', error);
+    console.error('❌ Failed to load client suggestions:', error);
+    
+    // Show error in datalist
+    const datalist = document.getElementById('client-suggestions');
+    if (datalist) {
+      datalist.innerHTML = '<option value="Error loading clients">';
+    }
   }
 }
 
