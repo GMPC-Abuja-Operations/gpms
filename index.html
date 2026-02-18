@@ -2573,11 +2573,19 @@ console.log('Filtered notifications:', {
 }
 
     // Replace your loadClientSuggestions with this debug version:
+// ========== CLIENT AUTO-COMPLETE ==========
 async function loadClientSuggestions() {
   console.log('🚀 Loading client suggestions...');
   
+  const datalist = document.getElementById('client-suggestions');
+  if (!datalist) {
+    console.error('❌ Datalist element not found!');
+    return;
+  }
+  
   try {
-    console.log('📡 Fetching from:', `${SCRIPT_URL}?action=getClients`);
+    // Show loading state
+    datalist.innerHTML = '<option value="Loading clients...">';
     
     const response = await fetch(`${SCRIPT_URL}?action=getClients`, {
       method: 'GET',
@@ -2585,59 +2593,70 @@ async function loadClientSuggestions() {
       cache: 'no-cache'
     });
     
-    console.log('📨 Response status:', response.status);
-    console.log('📨 Response OK?', response.ok);
-    
     if (!response.ok) {
-      console.error('❌ HTTP error:', response.status, response.statusText);
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`HTTP error ${response.status}`);
     }
     
     const clients = await response.json();
-    console.log('📦 Raw response:', clients);
-    console.log('📦 Type:', typeof clients);
-    console.log('📦 Is array?', Array.isArray(clients));
-    console.log('📦 Length:', clients?.length);
-    console.log('📦 First 5:', clients?.slice(0, 5));
+    console.log('📦 API Response:', clients);
     
-    const datalist = document.getElementById('client-suggestions');
-    console.log('🎯 Datalist element:', datalist);
+    // Clear datalist
+    datalist.innerHTML = '';
     
-    if (!datalist) {
-      console.error('❌ Could not find datalist element with id "client-suggestions"');
+    // Check if we got an array
+    if (!Array.isArray(clients)) {
+      console.error('❌ Response is not an array:', clients);
+      datalist.innerHTML = '<option value="Error: Invalid data format">';
       return;
     }
     
-    if (!clients || clients.length === 0) {
-      console.warn('⚠️ No clients returned from API');
+    if (clients.length === 0) {
+      console.warn('⚠️ No clients returned');
       datalist.innerHTML = '<option value="No clients found">';
       return;
     }
     
-    // Build options
-    const options = clients.map(client => 
-      `<option value="${client.replace(/"/g, '&quot;')}">${client}</option>`
-    ).join('');
+    // Add each client as an option
+    clients.forEach(client => {
+      if (client && typeof client === 'string' && client.trim() !== '') {
+        const option = document.createElement('option');
+        option.value = client.trim();
+        datalist.appendChild(option);
+      }
+    });
     
-    console.log('📝 Generated HTML:', options.substring(0, 200) + '...');
+    console.log(`✅ Successfully added ${datalist.children.length} clients to datalist`);
     
-    datalist.innerHTML = options;
-    console.log('✅ Datalist populated with', clients.length, 'options');
-    
-    // Verify datalist has children
-    console.log('🔍 Datalist children count:', datalist.children.length);
+    // Verify it worked
+    console.log('📋 Datalist now contains:');
+    for (let i = 0; i < Math.min(5, datalist.children.length); i++) {
+      console.log(`   - ${datalist.children[i].value}`);
+    }
     
   } catch (error) {
     console.error('❌ Failed to load client suggestions:', error);
-    
-    // Show error in datalist
-    const datalist = document.getElementById('client-suggestions');
-    if (datalist) {
-      datalist.innerHTML = '<option value="Error loading clients">';
-    }
+    datalist.innerHTML = '<option value="Error loading clients">';
   }
 }
 
+// Make sure it runs when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('📄 DOM loaded, loading client suggestions...');
+  
+  // Small delay to ensure everything is ready
+  setTimeout(loadClientSuggestions, 500);
+  
+  // Also reload when switching to New Opportunity tab
+  const originalShowTab = window.showTab;
+  window.showTab = function(tabName) {
+    originalShowTab(tabName);
+    if (tabName === 'new') {
+      console.log('🔄 New tab shown, reloading client suggestions...');
+      setTimeout(loadClientSuggestions, 100);
+    }
+  };
+});
+    
 async function findTheBug() {
     console.log('🔍 FINDING THE BUG...');
     
