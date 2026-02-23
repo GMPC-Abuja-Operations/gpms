@@ -437,6 +437,31 @@ const firebaseCheck = setInterval(() => {
     margin-bottom: 10px;
   }
 }
+
+        /* Add to your styles */
+.auth-required {
+    position: relative;
+}
+
+.auth-required::after {
+    content: "🔒";
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.5;
+}
+
+.task-select:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.search-input:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+}
     </style>
 </head>
 <body>
@@ -1453,7 +1478,20 @@ console.log('Filtered notifications:', {
         // Initialize Firebase only once
         if (window.firebaseApp) {
             firebase.initializeApp(firebaseConfig);
-        }
+        };
+
+        // Re-enable and reload tasks
+    const taskSelect = document.getElementById('taskId');
+    if (taskSelect) taskSelect.disabled = false;
+    
+    const searchInput = document.getElementById('task-search');
+    if (searchInput) {
+        searchInput.disabled = false;
+        searchInput.placeholder = '🔍 Search tasks...';
+    }
+    
+    await loadTasks(); // Load tasks now that user is authenticated
+}
         
         // Wait for service worker to be ready before getting FCM token
         async function initializeFCMWithServiceWorker() {
@@ -1533,7 +1571,24 @@ console.log('Filtered notifications:', {
         updateNotificationUI([]);
         
         authInitialized = false;
+    };
+
+    // Clear and disable task search
+    const taskSelect = document.getElementById('taskId');
+    if (taskSelect) {
+        taskSelect.innerHTML = '<option value="" disabled selected>🔒 Sign in to view tasks</option>';
+        taskSelect.disabled = true;
     }
+    
+    const searchInput = document.getElementById('task-search');
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.disabled = true;
+        searchInput.placeholder = '🔒 Sign in to search';
+    }
+    
+    allTasks = [];
+}
 
     // Show login form
     function showLoginForm() {
@@ -1944,11 +1999,29 @@ console.log('Filtered notifications:', {
     async function loadTasks() {
         const select = document.getElementById('taskId');
         if (!select) return;
+
+        // 🔒 AUTH CHECK
+    if (!currentUser) {
+        console.log('⚠️ User not authenticated - hiding tasks');
+        select.innerHTML = '<option value="" disabled selected>🔒 Sign in to view tasks</option>';
+        select.disabled = true;
+        
+        const searchInput = document.getElementById('task-search');
+        if (searchInput) {
+            searchInput.disabled = true;
+            searchInput.placeholder = '🔒 Sign in to search';
+        }
+        return;
+    }
+    
+    // User is authenticated - proceed
+    select.disabled = false;
+    const searchInput = document.getElementById('task-search');
+    if (searchInput) searchInput.disabled = false;
         
         try {
             // Show loading state
             select.classList.add('loading-dropdown');
-            select.disabled = true;
             select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
             
             // Call your Apps Script
