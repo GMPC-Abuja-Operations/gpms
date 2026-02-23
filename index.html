@@ -1509,7 +1509,7 @@ console.log('Filtered notifications:', {
             } catch (error) {
                 console.error('FCM initialization failed:', error);
             }
-        }
+        
         
         const fcmResult = await manageFCMToken(user.id);
         if (fcmResult) {
