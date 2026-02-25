@@ -2869,28 +2869,19 @@ async function findTheBug() {
 }
 
 // ========== REVISION UI HANDLERS ==========
-
-// Show/hide revision section based on status selection
-// ========== REVISION UI HANDLERS ==========
 function initRevisionUI() {
     console.log('🔄 Initializing revision UI...');
     
     const statusSelect = document.getElementById('status');
     const revisionSection = document.getElementById('revision-section');
+    const taskSelect = document.getElementById('taskId');
     
-    if (!statusSelect) {
-        console.error('❌ Status select not found');
+    if (!statusSelect || !revisionSection) {
+        console.error('❌ Required elements not found');
         return;
     }
     
-    if (!revisionSection) {
-        console.error('❌ Revision section not found');
-        return;
-    }
-    
-    console.log('✅ Revision UI elements found');
-    
-    // Add "Revision Requested" option to status dropdown if it doesn't exist
+    // Add "Revision Requested" option if missing
     let hasRevisionOption = false;
     for (let i = 0; i < statusSelect.options.length; i++) {
         if (statusSelect.options[i].value === 'revision_requested') {
@@ -2900,14 +2891,13 @@ function initRevisionUI() {
     }
     
     if (!hasRevisionOption) {
-        console.log('📝 Adding "Revision Requested" option to status dropdown');
         const option = document.createElement('option');
         option.value = 'revision_requested';
         option.textContent = '🔄 Revision Requested';
         statusSelect.appendChild(option);
     }
     
-    // Show/hide revision section based on selection
+    // ========== STATUS CHANGE HANDLER ==========
     statusSelect.addEventListener('change', function() {
         console.log('📋 Status changed to:', this.value);
         
@@ -2915,66 +2905,86 @@ function initRevisionUI() {
             console.log('🔄 Showing revision section');
             revisionSection.style.display = 'block';
             
-            // Scroll to revision section smoothly
-            revisionSection.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'center' 
-            });
+            // Store in sessionStorage that revision was requested
+            sessionStorage.setItem('revisionMode', 'active');
             
-            // Highlight the section briefly
-            revisionSection.style.transition = 'background-color 0.5s';
-            revisionSection.style.backgroundColor = '#fff9e6';
-            setTimeout(() => {
-                revisionSection.style.backgroundColor = '#fff3cd';
-            }, 500);
+            // Scroll to revision section
+            revisionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
         } else {
             console.log('🙈 Hiding revision section');
             revisionSection.style.display = 'none';
+            sessionStorage.removeItem('revisionMode');
             
-            // Optionally clear the notes when hiding
-            if (this.value !== 'revision_requested') {
-                document.getElementById('revisionNotes').value = '';
-            }
+            // Clear notes when hiding
+            document.getElementById('revisionNotes').value = '';
         }
     });
     
-    // Also show version info when task is selected
-    const taskSelect = document.getElementById('taskId');
+    // ========== TASK SELECTION HANDLER ==========
     if (taskSelect) {
         taskSelect.addEventListener('change', function() {
-            if (this.value) {
-                loadTaskVersionInfo();
+            const taskId = this.value;
+            console.log('📋 Task selected:', taskId);
+            
+            if (taskId) {
+                // Load version info first
+                loadTaskVersionInfo(taskId).then(() => {
+                    // ========== CRITICAL: RESTORE REVISION SECTION IF NEEDED ==========
+                    // Check if revision was previously selected
+                    if (sessionStorage.getItem('revisionMode') === 'active') {
+                        console.log('🔄 Restoring revision section after task selection');
+                        revisionSection.style.display = 'block';
+                        
+                        // Also set the status dropdown to match
+                        if (statusSelect.value !== 'revision_requested') {
+                            statusSelect.value = 'revision_requested';
+                        }
+                    } else {
+                        // Check if current status is revision_requested
+                        if (statusSelect.value === 'revision_requested') {
+                            revisionSection.style.display = 'block';
+                        } else {
+                            revisionSection.style.display = 'none';
+                        }
+                    }
+                });
+            } else {
+                // No task selected, hide version info
+                const versionInfo = document.getElementById('version-info');
+                if (versionInfo) versionInfo.style.display = 'none';
             }
         });
     }
+    
+    // Check initial state
+    if (statusSelect.value === 'revision_requested') {
+        revisionSection.style.display = 'block';
+    }
 }
 
-// Version info loading function
-async function loadTaskVersionInfo() {
-    const taskSelect = document.getElementById('taskId');
+// ========== VERSION INFO LOADING ==========
+async function loadTaskVersionInfo(taskId) {
     const versionInfo = document.getElementById('version-info');
     const versionBadge = document.getElementById('version-badge');
     const lastSentEl = document.getElementById('last-sent');
+    const viewHistoryBtn = document.getElementById('view-history-btn');
     
-    if (!taskSelect || !taskSelect.value || !versionInfo) return;
-    
-    const taskId = taskSelect.value;
-    console.log('📊 Loading version info for:', taskId);
+    if (!taskId || !versionInfo) return;
     
     try {
-        // Show loading state
+        // Show loading state but KEEP revision section visible if it was showing
         versionInfo.style.display = 'block';
         versionBadge.textContent = 'Loading...';
         
-        // Fetch version history from your API
         const response = await fetch(`${SCRIPT_URL}?action=getVersionHistory&taskId=${encodeURIComponent(taskId)}`);
         const data = await response.json();
         
         console.log('📦 Version data:', data);
         
         // Update UI with real data
-        versionBadge.textContent = `Version ${data.version || 0}`;
+        const version = data.version || 0;
+        versionBadge.textContent = `Version ${version}`;
         
         if (data.lastSent) {
             const lastSent = new Date(data.lastSent);
@@ -2984,16 +2994,23 @@ async function loadTaskVersionInfo() {
         }
         
         // Style based on version
-        if (data.version > 1) {
+        if (version > 1) {
             versionBadge.style.background = '#ff9800';
-            versionBadge.innerHTML = `🔄 Version ${data.version}`;
-        } else if (data.version === 1) {
+            versionBadge.innerHTML = `🔄 Version ${version}`;
+            if (viewHistoryBtn) viewHistoryBtn.style.display = 'inline-block';
+        } else if (version === 1) {
             versionBadge.style.background = '#4caf50';
-            versionBadge.innerHTML = `📤 Version ${data.version}`;
+            versionBadge.innerHTML = `📤 Version ${version}`;
+            if (viewHistoryBtn) viewHistoryBtn.style.display = 'inline-block';
         } else {
             versionBadge.style.background = '#9e9e9e';
             versionBadge.innerHTML = `📝 Not sent`;
+            if (viewHistoryBtn) viewHistoryBtn.style.display = 'none';
         }
+        
+        // Store version data for later use
+        versionInfo.dataset.version = version;
+        versionInfo.dataset.lastSent = data.lastSent || '';
         
     } catch (error) {
         console.error('❌ Error loading version info:', error);
