@@ -853,7 +853,7 @@ const firebaseCheck = setInterval(() => {
     const SUPABASE_URL = 'https://sudsanzsdppdjcsvsukf.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1ZHNhbnpzZHBwZGpjc3ZzdWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzM5NTIsImV4cCI6MjA4NTUwOTk1Mn0.tReoBHtVOyB4OWV5W-jPpt1xvpRlUKKQSXBOFdMXzAo';
     const ONESIGNAL_APP_ID = '179a1072-ca8a-4e68-8d61-d3419d7d5138';
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzkxm7yS1kTZij_pyVQV95EWUGk5BPa2CKpkFxfGZbqH_MZBletP6T1AJ4lEHENrBSp/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyyE3Wagjq2xEuVH_wWzPY-4PuyflfcpxcLQioTB8YduXd_baqfqzz7tkpkelslPGA/exec';
     const VAPID_KEY = 'BKdTc_pfiAr5rsfkNcPxnulEeIt7dTHi_TxX61RYNC2g0zZ4-0WzJpU-PvdqW14WuOIZf_KDeD45gg2Ri6eOXBQ';
     
     // ========== GLOBAL VARIABLES ==========
@@ -1617,6 +1617,7 @@ function handleUserSignedOut() {
     updateNotificationUI([]);
     
     // ✅ MOVE THESE INSIDE THE FUNCTION - Clear and disable task search
+    // Clear and disable task search
     const taskSelect = document.getElementById('taskId');
     if (taskSelect) {
         taskSelect.innerHTML = '<option value="" disabled selected>🔒 Sign in to view tasks</option>';
@@ -2041,11 +2042,12 @@ function showLoginForm() {
     }
 
     // ========== TASK LOADING ==========
-    async function loadTasks() {
-        const select = document.getElementById('taskId');
-        if (!select) return;
-
-        // 🔒 AUTH CHECK
+    // ========== UPDATED loadTasks ==========
+async function loadTasks() {
+    const select = document.getElementById('taskId');
+    if (!select) return;
+    
+    // Auth check
     if (!currentUser) {
         console.log('⚠️ User not authenticated - hiding tasks');
         select.innerHTML = '<option value="" disabled selected>🔒 Sign in to view tasks</option>';
@@ -2059,95 +2061,147 @@ function showLoginForm() {
         return;
     }
     
-    // User is authenticated - proceed
-    select.disabled = false;
-    const searchInput = document.getElementById('task-search');
-    if (searchInput) searchInput.disabled = false;
+    try {
+        // Show loading state
+        select.classList.add('loading-dropdown');
+        select.disabled = true;
+        select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
         
-        try {
-            // Show loading state
-            select.classList.add('loading-dropdown');
-            select.innerHTML = '<option value="">Loading tasks... 🔄</option>';
-            
-            // Call your Apps Script
-            const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
-                mode: 'cors',
-                cache: 'no-cache'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
-            
-            const tasks = await response.json();
-            
-            // Store all tasks for search
-            allTasks = tasks || [];
-            
-            // Populate dropdown
-            populateTaskDropdown(allTasks);
-            
-        } catch (error) {
-            console.error('Error loading tasks:', error);
-            select.innerHTML = '<option value="">Error loading tasks</option>';
-            
-            // Show error in banner
-            const errorBanner = document.getElementById('error-banner');
+        // Enable search
+        const searchInput = document.getElementById('task-search');
+        if (searchInput) {
+            searchInput.disabled = false;
+        }
+        
+        // Call your Apps Script
+        const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
+            mode: 'cors',
+            cache: 'no-cache'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const tasks = await response.json();
+        console.log('📋 Tasks loaded:', tasks);
+        
+        // Store all tasks for search
+        allTasks = tasks || [];
+        
+        // Populate dropdown
+        populateTaskDropdown(allTasks);
+        
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+        select.innerHTML = '<option value="">Error loading tasks</option>';
+        
+        const errorBanner = document.getElementById('error-banner');
+        if (errorBanner) {
             errorBanner.textContent = 'Failed to load tasks. Check console for details.';
             errorBanner.style.display = 'block';
-        } finally {
-            if (select) {
-                select.classList.remove('loading-dropdown');
-                select.disabled = false;
+        }
+    } finally {
+        if (select) {
+            select.classList.remove('loading-dropdown');
+            select.disabled = false;
+        }
+    }
+}
+
+    // ========== UPDATED populateTaskDropdown with Smart Display ==========
+function populateTaskDropdown(tasks) {
+    const select = document.getElementById('taskId');
+    if (!select) return;
+    
+    const searchTerm = document.getElementById('task-search')?.value.toLowerCase() || '';
+    
+    // Auth check
+    if (!currentUser) {
+        select.innerHTML = '<option value="" disabled selected>🔒 Sign in to view tasks</option>';
+        return;
+    }
+    
+    select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
+    
+    if (!tasks || tasks.length === 0) {
+        select.innerHTML += '<option value="">No active tasks found</option>';
+        return;
+    }
+    
+    // Filter tasks based on search
+    const filteredTasks = tasks.filter(task => {
+        if (!searchTerm) return true;
+        const taskText = `${task.clientName} ${task.status}`.toLowerCase();
+        return taskText.includes(searchTerm);
+    });
+    
+    // Add each task to dropdown
+    filteredTasks.forEach(task => {
+        const option = document.createElement('option');
+        option.value = task.id;
+        
+        // ========== SMART DISPLAY LOGIC ==========
+        let displayText = `${task.clientName} - ${task.status}`;
+        
+        // For Follow-up tasks, show days since sent
+        if (task.status === 'Follow-up' && task.lastSent) {
+            try {
+                const lastSentDate = new Date(task.lastSent);
+                const today = new Date();
+                const daysSince = Math.floor((today - lastSentDate) / (1000 * 60 * 60 * 24));
+                
+                if (daysSince === 0) {
+                    displayText += ` (Sent today)`;
+                } else if (daysSince === 1) {
+                    displayText += ` (Sent yesterday)`;
+                } else {
+                    displayText += ` (Sent ${daysSince} days ago)`;
+                }
+            } catch (e) {
+                // If date parsing fails, just show the status
+                console.log('Date parsing error:', e);
             }
+        } 
+        // For other tasks, show due date if available
+        else if (task.dueDate && task.dueDate !== '') {
+            displayText += ` (Due: ${task.dueDate})`;
         }
+        
+        option.textContent = displayText;
+        option.className = 'task-option';
+        select.appendChild(option);
+    });
+    
+    // Update search placeholder with count
+    const searchInput = document.getElementById('task-search');
+    if (searchInput) {
+        searchInput.placeholder = `🔍 Search ${filteredTasks.length} tasks...`;
     }
-
-    function populateTaskDropdown(tasks) {
-        const select = document.getElementById('taskId');
-        if (!select) return;
-        
-        const searchTerm = document.getElementById('task-search')?.value.toLowerCase() || '';
-        
-        select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
-        
-        if (!tasks || tasks.length === 0) {
-            select.innerHTML += '<option value="">No active tasks found</option>';
-            return;
-        }
-        
-        // Filter tasks based on search
-        const filteredTasks = tasks.filter(task => {
-            if (!searchTerm) return true;
-            const taskText = `${task.clientName} ${task.status} ${task.dueDate}`.toLowerCase();
-            return taskText.includes(searchTerm);
+}
+    // ========== UPDATE initTaskSearch ==========
+function initTaskSearch() {
+    const searchInput = document.getElementById('task-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            // Don't show tasks if not authenticated
+            if (!currentUser) {
+                const select = document.getElementById('taskId');
+                select.innerHTML = '<option value="" disabled selected>🔒 Sign in to view tasks</option>';
+                return;
+            }
+            populateTaskDropdown(allTasks);
         });
         
-        // Add each task to dropdown
-        filteredTasks.forEach(task => {
-            const option = document.createElement('option');
-            option.value = task.id;
-            option.textContent = `${task.clientName} - ${task.status} (Due: ${task.dueDate || 'No date'})`;
-            option.className = 'task-option';
-            select.appendChild(option);
+        // Disable search when not authenticated
+        searchInput.addEventListener('focus', function() {
+            if (!currentUser) {
+                this.blur();
+                showTempMessage('error-banner', 'Please sign in to search tasks', 2000);
+            }
         });
-        
-        // Show count in search placeholder
-        const searchInput = document.getElementById('task-search');
-        if (searchInput) {
-            searchInput.placeholder = `🔍 Search ${filteredTasks.length} tasks...`;
-        }
     }
-
-    function initTaskSearch() {
-        const searchInput = document.getElementById('task-search');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                populateTaskDropdown(allTasks);
-            });
-        }
-    }
-
+}
     // ========== FORM DRAFT PERSISTENCE ==========
     function loadFormDraft() {
         const draft = localStorage.getItem('newOpportunityDraft');
