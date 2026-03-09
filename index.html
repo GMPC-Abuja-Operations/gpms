@@ -668,7 +668,7 @@ const firebaseCheck = setInterval(() => {
                     <!-- Task Search with Autocomplete -->
 <div style="margin-bottom: 20px; position: relative;">
     <label for="taskSearchInput" style="font-weight: 600; margin-bottom: 6px; display: block;">
-        🔍 Search Tasks:
+        Search Tasks:
     </label>
     <div style="position: relative;">
         <input type="text" 
@@ -679,10 +679,6 @@ const firebaseCheck = setInterval(() => {
                       border: 1px solid #4A2C2A; border-radius: 6px; 
                       font-size: 1rem; box-sizing: border-box;
                       transition: all 0.3s ease;">
-        
-        <!-- Search icon -->
-        <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-                     color: #D4AF37; font-size: 1.2rem;">🔍</span>
     </div>
     
     <!-- Dropdown Results -->
@@ -2284,78 +2280,91 @@ if (!currentUser) {
     
     // Function to render dropdown
     function renderDropdown(matches, searchTerm) {
-        if (matches.length === 0) {
-            dropdown.innerHTML = `
-                <div style="padding: 20px; text-align: center; color: #999;">
-                    <div style="font-size: 2rem; margin-bottom: 10px;">🔍</div>
-                    <div>No tasks found matching "<strong>${searchTerm}</strong>"</div>
-                    <div style="font-size: 0.9rem; margin-top: 10px; color: #ccc;">
-                        Try a different search term
+    if (matches.length === 0) {
+        dropdown.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #999;">
+                <div style="font-size: 2rem; margin-bottom: 10px;">🔍</div>
+                <div>No tasks found matching "<strong>${searchTerm}</strong>"</div>
+                <div style="font-size: 0.9rem; margin-top: 10px; color: #ccc;">
+                    Try a different search term
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+
+    // Add header if showing all tasks
+    if (searchTerm.length === 0) {
+        html += `
+            <div style="padding: 8px 12px; background: #F5F0E1; font-weight: 600; 
+                       border-bottom: 1px solid #D4AF37; color: #4A2C2A;">
+                📋 All Active Proposals (${matches.length})
+            </div>
+        `;
+    }
+    
+    // ===== SINGLE MAP =====
+    html += matches.map((task, index) => {
+        const isSelected = index === selectedIndex;
+        
+        // Build display text with highlights
+        const clientName = highlightMatch(task.clientName, searchTerm);
+        const taskId = highlightMatch(task.id, searchTerm);
+        const status = highlightMatch(task.status, searchTerm);
+        
+        // Get days ago for follow-up tasks
+        const daysAgo = task.status === 'Follow-up' ? getDaysAgo(task.lastSent) : '';
+        
+        // Get due date for other tasks
+        const dueInfo = task.status !== 'Follow-up' && task.dueDate ? 
+            `<span style="color: #666;">📅 Due: ${task.dueDate}</span>` : '';
+        
+        return `
+            <div class="task-option" 
+                 data-task-id="${task.id}"
+                 data-index="${index}"
+                 style="padding: 15px; cursor: pointer; 
+                        border-bottom: 1px solid #eee;
+                        background: ${isSelected ? '#F5F0E1' : 'white'};
+                        transition: all 0.2s ease;
+                        ${isSelected ? 'border-left: 4px solid #D4AF37;' : ''}">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 700; font-size: 1.1rem; color: #4A2C2A;">
+                        ${clientName}
+                    </div>
+                    <div style="font-size: 0.8rem; color: #999; font-family: monospace;">
+                        ${taskId}
                     </div>
                 </div>
-            `;
-            return;
-        }
-        
-        dropdown.innerHTML = matches.map((task, index) => {
-            const isSelected = index === selectedIndex;
-            
-            // Build display text with highlights
-            const clientName = highlightMatch(task.clientName, searchTerm);
-            const taskId = highlightMatch(task.id, searchTerm);
-            const status = highlightMatch(task.status, searchTerm);
-            
-            // Get days ago for follow-up tasks
-            const daysAgo = task.status === 'Follow-up' ? getDaysAgo(task.lastSent) : '';
-            
-            // Get due date for other tasks
-            const dueInfo = task.status !== 'Follow-up' && task.dueDate ? 
-                `<span style="color: #666;">📅 Due: ${task.dueDate}</span>` : '';
-            
-            return `
-                <div class="task-option" 
-                     data-task-id="${task.id}"
-                     data-index="${index}"
-                     style="padding: 15px; cursor: pointer; 
-                            border-bottom: 1px solid #eee;
-                            background: ${isSelected ? '#F5F0E1' : 'white'};
-                            transition: all 0.2s ease;
-                            ${isSelected ? 'border-left: 4px solid #D4AF37;' : ''}">
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="font-weight: 700; font-size: 1.1rem; color: #4A2C2A;">
-                            ${clientName}
-                        </div>
-                        <div style="font-size: 0.8rem; color: #999; font-family: monospace;">
-                            ${taskId}
-                        </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <span style="background: ${getStatusColor(task.status)}; 
+                                   color: white; padding: 3px 10px; 
+                                   border-radius: 20px; font-size: 0.85rem;">
+                            ${status}
+                        </span>
+                        ${daysAgo ? `<span style="font-size: 0.85rem;">${daysAgo}</span>` : ''}
                     </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <span style="background: ${getStatusColor(task.status)}; 
-                                       color: white; padding: 3px 10px; 
-                                       border-radius: 20px; font-size: 0.85rem;">
-                                ${status}
-                            </span>
-                            ${daysAgo ? `<span style="font-size: 0.85rem;">${daysAgo}</span>` : ''}
-                        </div>
-                        ${dueInfo}
-                    </div>
-                    
-                    ${index < matches.length - 1 ? '' : ''}
+                    ${dueInfo}
                 </div>
-            `;
-        }).join('');
-        
-        // Scroll selected item into view
-        if (selectedIndex >= 0) {
-            const selectedElement = dropdown.querySelector(`[data-index="${selectedIndex}"]`);
-            if (selectedElement) {
-                selectedElement.scrollIntoView({ block: 'nearest' });
-            }
+            </div>
+        `;
+    }).join('');
+    
+    dropdown.innerHTML = html;
+    
+    // Scroll selected item into view
+    if (selectedIndex >= 0) {
+        const selectedElement = dropdown.querySelector(`[data-index="${selectedIndex}"]`);
+        if (selectedElement) {
+            selectedElement.scrollIntoView({ block: 'nearest' });
         }
     }
+}
     
     // Helper function for status colors
     function getStatusColor(status) {
@@ -2375,20 +2384,20 @@ if (!currentUser) {
         const searchTerm = this.value.toLowerCase().trim();
         selectedIndex = -1; // Reset selection
         
-        if (searchTerm.length < 1) {
-            dropdown.style.display = 'none';
-            return;
-        }
-        
-        // Filter tasks
+        if (searchTerm.length === 0) {
+        // Show ALL tasks when search is empty
+        currentMatches = allTasks.slice(0, 15); // Limit to 15 for performance
+        dropdown.style.display = 'block';
+    } else {
+        // Filter as normal
         currentMatches = allTasks.filter(task => {
             const searchableText = `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
             return searchableText.includes(searchTerm);
-        }).slice(0, 10); // Limit to 10 results for performance
-        
-        renderDropdown(currentMatches, searchTerm);
-        dropdown.style.display = 'block';
-    });
+        }).slice(0, 10);
+    }
+    
+    renderDropdown(currentMatches, searchTerm);
+});
     
     // Keyboard navigation
     searchInput.addEventListener('keydown', function(e) {
