@@ -675,8 +675,8 @@ const firebaseCheck = setInterval(() => {
                id="taskSearchInput" 
                placeholder="Type client name, task ID, or status..." 
                autocomplete="off"
-               style="width: 100%; padding: 14px 40px 14px 14px; 
-                      border: 2px solid #4A2C2A; border-radius: 8px; 
+               style="width: 100%; padding: 12px 40px 12px 12px; 
+                      border: 1px solid #4A2C2A; border-radius: 6px; 
                       font-size: 1rem; box-sizing: border-box;
                       transition: all 0.3s ease;">
         
@@ -701,7 +701,7 @@ const firebaseCheck = setInterval(() => {
 <select id="taskId" style="display: none;"></select>
                     
                     <!-- Task Selection -->
-                    <div>
+                    <div style="display: none;">
                         <label for="taskId">Select Task:*</label>
                         <select id="taskId" name="taskId" required>
                             <option value="" disabled selected>Loading tasks…</option>
@@ -2100,7 +2100,6 @@ async function loadTasks() {
             searchInput.disabled = false;
         }
         
-        // Call your Apps Script
         const response = await fetch(`${SCRIPT_URL}?action=getTasks`, {
             mode: 'cors',
             cache: 'no-cache'
@@ -2116,18 +2115,38 @@ async function loadTasks() {
         // Store all tasks for search
         allTasks = tasks || [];
         
-        // ========== MOVE THIS HERE ==========
-        // Populate the hidden original select for backward compatibility
+        // ===== POPULATE BOTH SELECT AND HIDDEN FIELD =====
+        // Clear and populate the visible select (for backward compatibility)
+        select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
+        
         if (allTasks.length > 0) {
-            select.innerHTML = '<option value="" disabled selected>Select a task...</option>';
             allTasks.forEach(task => {
                 const option = document.createElement('option');
                 option.value = task.id;
-                option.textContent = `${task.clientName} - ${task.status}`;
+                
+                // Format display text
+                let displayText = `${task.clientName} - ${task.status}`;
+                if (task.status === 'Follow-up' && task.lastSent) {
+                    try {
+                        const daysSince = Math.floor((new Date() - new Date(task.lastSent)) / (1000*60*60*24));
+                        if (daysSince === 0) displayText += ` (Sent today)`;
+                        else if (daysSince === 1) displayText += ` (Sent yesterday)`;
+                        else displayText += ` (Sent ${daysSince} days ago)`;
+                    } catch (e) {}
+                } else if (task.dueDate) {
+                    displayText += ` (Due: ${task.dueDate})`;
+                }
+                
+                option.textContent = displayText;
                 select.appendChild(option);
             });
+        } else {
+            select.innerHTML += '<option value="">No active tasks found</option>';
         }
-        // ====================================
+        
+        // Also populate the hidden original select (for form submission)
+        const hiddenSelect = document.getElementById('taskId'); // Same element
+        // Already done above
         
     } catch (error) {
         console.error('Error loading tasks:', error);
