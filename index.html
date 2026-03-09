@@ -560,6 +560,19 @@ const firebaseCheck = setInterval(() => {
     border-bottom: 1px solid var(--primary);
     color: var(--dark);
 }
+    /* Add to your styles - loading effect in the field */
+.loading-field {
+    background-image: linear-gradient(45deg, transparent 33%, rgba(212, 175, 55, 0.1) 33%, rgba(212, 175, 55, 0.1) 66%, transparent 66%);
+    background-size: 35px 35px;
+    animation: loading-shimmer 1.5s linear infinite;
+    border-color: var(--primary) !important;
+}
+
+/* Keep your existing loading-shimmer animation */
+@keyframes loading-shimmer {
+    0% { background-position: -100px 0; }
+    100% { background-position: 100px 0; }
+}
     </style>
 </head>
 <body>
@@ -2330,10 +2343,8 @@ function populateTaskDropdown(tasks) {
 }
 // ========== ADVANCED TASK SEARCH WITH KEYBOARD NAVIGATION ==========
 function initTaskSearchAutocomplete() {
-
-    // ===== AUTH CHECK =====
+    // Auth check
     if (!currentUser) {
-        console.log('⚠️ User not authenticated - disabling search');
         const searchInput = document.getElementById('taskSearchInput');
         if (searchInput) {
             searchInput.disabled = true;
@@ -2341,54 +2352,41 @@ function initTaskSearchAutocomplete() {
         }
         return;
     }
-
+    
     const searchInput = document.getElementById('taskSearchInput');
     const dropdown = document.getElementById('taskDropdown');
     const hiddenInput = document.getElementById('selectedTaskId');
-    const originalSelect = document.getElementById('taskId');
-
+    
     if (!searchInput || !dropdown) return;
-
+    
     let selectedIndex = -1;
     let currentMatches = [];
-
-    // ===== LOADING SPINNER =====
-    function showLoading() {
-        dropdown.innerHTML = `
-            <div style="padding:20px;text-align:center;color:#D4AF37;">
-                <div class="loading-spinner" style="
-                    width:28px;height:28px;margin:auto;
-                    border:3px solid #F5F0E1;
-                    border-top:3px solid #D4AF37;
-                    border-radius:50%;
-                    animation:spin 1s linear infinite;
-                "></div>
-                <div style="margin-top:10px;">Loading tasks...</div>
-            </div>
-        `;
-        dropdown.style.display = 'block';
-        
-isLoading = true;
-    dropdown.innerHTML = `
-        <div class="autocomplete-loading" style="padding: 20px; text-align: center;">
-            <div class="loading-spinner"></div>
-            <div style="margin-top: 10px; color: var(--primary);">Loading tasks...</div>
-        </div>
-    `;
-    dropdown.style.display = 'block';
+    let isLoading = false;
+    
+    // ===== LOADING INDICATOR IN THE FIELD =====
+    function showFieldLoading() {
+        isLoading = true;
+        // Add loading class to the input field
+        searchInput.classList.add('loading-field');
+        searchInput.placeholder = '🔍 Loading tasks...';
+        // Hide dropdown while loading
+        dropdown.style.display = 'none';
     }
-
-    // ===== SPINNER CSS =====
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-    `;
-    document.head.appendChild(style);
-
-    // ===== STATUS COLORS =====
+    
+    function hideFieldLoading() {
+        isLoading = false;
+        searchInput.classList.remove('loading-field');
+        searchInput.placeholder = 'Type client name, task ID, or status...';
+    }
+    
+    // ===== HIGHLIGHT FUNCTION =====
+    function highlightMatch(text, searchTerm) {
+        if (!searchTerm || !text) return text;
+        const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        return text.toString().replace(regex, '<span style="background-color: #D4AF37; color: #4A2C2A; font-weight: bold;">$1</span>');
+    }
+    
+    // ===== STATUS COLOR FUNCTION =====
     function getStatusColor(status) {
         const colors = {
             'Follow-up': '#FF9800',
@@ -2400,167 +2398,203 @@ isLoading = true;
         };
         return colors[status] || '#757575';
     }
-
-    // ===== TEXT HIGHLIGHT =====
-    function highlightMatch(text, term) {
-        if (!term) return text;
-        const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        return text.replace(regex, '<span style="background:#D4AF37;color:#4A2C2A;font-weight:bold;">$1</span>');
-    }
-
-    // ===== DATE URGENCY =====
+    
+    // ===== DAYS AGO FUNCTION =====
     function getDaysAgo(dateString) {
         if (!dateString) return '';
-
         try {
             const date = new Date(dateString);
             const today = new Date();
             const days = Math.floor((today - date) / (1000 * 60 * 60 * 24));
-
-            if (days === 0) return '<span style="color:#4CAF50;">📅 Today</span>';
-            if (days === 1) return '<span style="color:#FF9800;">📅 Yesterday</span>';
-            if (days < 7) return `<span style="color:#FF9800;">📅 ${days} days ago</span>`;
-            if (days < 30) return `<span style="color:#f44336;">📅 ${days} days ago</span>`;
-            return `<span style="color:#f44336;font-weight:bold;">📅 ${days} days ago ⚠️</span>`;
-        } catch {
+            
+            if (days === 0) return '<span style="color: #4CAF50;">📅 Today</span>';
+            if (days === 1) return '<span style="color: #FF9800;">📅 Yesterday</span>';
+            if (days < 7) return `<span style="color: #FF9800;">📅 ${days} days ago</span>`;
+            if (days < 30) return `<span style="color: #f44336;">📅 ${days} days ago</span>`;
+            return `<span style="color: #f44336; font-weight: bold;">📅 ${days} days ago ⚠️</span>`;
+        } catch (e) {
             return '';
         }
     }
-
-    // ===== RENDER DROPDOWN =====
-    function renderDropdown(matches, term) {
-
+    
+    // ===== RENDER FUNCTION =====
+    function renderDropdown(matches, searchTerm) {
         if (matches.length === 0) {
             dropdown.innerHTML = `
-                <div style="padding:20px;text-align:center;color:#999;">
-                    <div style="font-size:2rem;margin-bottom:10px;">🔍</div>
-                    <div>No tasks found matching "<strong>${term}</strong>"</div>
+                <div style="padding: 20px; text-align: center; color: #999;">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">🔍</div>
+                    <div>No tasks found matching "<strong>${searchTerm}</strong>"</div>
+                    <div style="font-size: 0.9rem; margin-top: 10px; color: #ccc;">
+                        Try a different search term
+                    </div>
                 </div>
             `;
-            dropdown.style.display = 'block';
             return;
         }
-
+        
         let html = '';
 
-        if (term.length === 0) {
+        // Add header if showing all tasks
+        if (searchTerm.length === 0) {
             html += `
-                <div style="padding:8px 12px;background:#F5F0E1;font-weight:600;
-                            border-bottom:1px solid #D4AF37;color:#4A2C2A;
-                            display:flex;justify-content:space-between;">
+                <div style="padding: 8px 12px; background: #F5F0E1; font-weight: 600; 
+                           border-bottom: 1px solid #D4AF37; color: #4A2C2A;
+                           display: flex; justify-content: space-between;">
                     <span>📋 All Active Proposals (${matches.length})</span>
-                    <span style="font-size:0.8rem;color:#666;">Click to select</span>
+                    <span style="font-size: 0.8rem; color: #666;">Click to select</span>
                 </div>
             `;
         }
-
+        
         html += matches.map((task, index) => {
-
-            const selected = index === selectedIndex;
-
-            const clientName = highlightMatch(task.clientName, term);
-            const taskId = highlightMatch(task.id, term);
-            const status = highlightMatch(task.status, term);
-
-            const daysAgo = task.status === 'Follow-up'
-                ? getDaysAgo(task.lastSent)
-                : '';
-
-            const dueInfo = task.status !== 'Follow-up' && task.dueDate
-                ? `<span style="color:#666;">📅 Due: ${task.dueDate}</span>`
-                : '';
-
+            const isSelected = index === selectedIndex;
+            
+            // Build display text with highlights
+            const clientName = highlightMatch(task.clientName, searchTerm);
+            const taskId = highlightMatch(task.id, searchTerm);
+            const status = highlightMatch(task.status, searchTerm);
+            
+            // Get days ago for follow-up tasks
+            const daysAgo = task.status === 'Follow-up' ? getDaysAgo(task.lastSent) : '';
+            
+            // Get due date for other tasks
+            const dueInfo = task.status !== 'Follow-up' && task.dueDate ? 
+                `<span style="color: #666;">📅 Due: ${task.dueDate}</span>` : '';
+            
             return `
-                <div class="task-option"
-                    data-task-id="${task.id}"
-                    data-index="${index}"
-                    style="padding:15px;cursor:pointer;border-bottom:1px solid #eee;
-                           background:${selected ? '#F5F0E1' : 'white'};
-                           ${selected ? 'border-left:4px solid #D4AF37;' : ''}">
-
-                    <div style="display:flex;justify-content:space-between;">
-                        <div style="font-weight:700;color:#4A2C2A;">
+                <div class="task-option" 
+                     data-task-id="${task.id}"
+                     data-index="${index}"
+                     style="padding: 15px; cursor: pointer; 
+                            border-bottom: 1px solid #eee;
+                            background: ${isSelected ? '#F5F0E1' : 'white'};
+                            transition: all 0.2s ease;
+                            ${isSelected ? 'border-left: 4px solid #D4AF37;' : ''}">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-weight: 700; font-size: 1.1rem; color: #4A2C2A;">
                             ${clientName}
                         </div>
-                        <div style="font-family:monospace;color:#999;font-size:0.8rem;">
+                        <div style="font-size: 0.8rem; color: #999; font-family: monospace;">
                             ${taskId}
                         </div>
                     </div>
-
-                    <div style="display:flex;justify-content:space-between;margin-top:5px;">
-                        <div style="display:flex;gap:10px;">
-                            <span style="
-                                background:${getStatusColor(task.status)};
-                                color:white;
-                                padding:3px 10px;
-                                border-radius:20px;
-                                font-size:0.85rem;">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span style="background: ${getStatusColor(task.status)}; 
+                                       color: white; padding: 3px 10px; 
+                                       border-radius: 20px; font-size: 0.85rem;">
                                 ${status}
                             </span>
-                            ${daysAgo}
+                            ${daysAgo ? `<span style="font-size: 0.85rem;">${daysAgo}</span>` : ''}
                         </div>
                         ${dueInfo}
                     </div>
                 </div>
             `;
         }).join('');
-
+        
         dropdown.innerHTML = html;
-        dropdown.style.display = 'block';
-
+        
+        // Scroll selected item into view
         if (selectedIndex >= 0) {
-            const el = dropdown.querySelector(`[data-index="${selectedIndex}"]`);
-            if (el) el.scrollIntoView({ block: 'nearest' });
+            const selectedElement = dropdown.querySelector(`[data-index="${selectedIndex}"]`);
+            if (selectedElement) {
+                selectedElement.scrollIntoView({ block: 'nearest' });
+            }
         }
     }
-
-    // ===== TASK LOADING =====
-    function loadTasks(term = '') {
-
+    
+    // ===== LOAD AND SHOW TASKS =====
+    function loadAndShowTasks(searchTerm = '') {
         if (!allTasks || allTasks.length === 0) {
-
-            showLoading();
-
-            const interval = setInterval(() => {
-
+            // Show loading in the FIELD, not dropdown
+            showFieldLoading();
+            
+            // Wait for tasks to load
+            const checkInterval = setInterval(() => {
                 if (allTasks && allTasks.length > 0) {
-
-                    clearInterval(interval);
-                    filterTasks(term);
-
+                    clearInterval(checkInterval);
+                    
+                    // Remove loading from field
+                    hideFieldLoading();
+                    
+                    // Prepare matches
+                    if (searchTerm.length === 0) {
+                        currentMatches = allTasks.slice(0, 15);
+                    } else {
+                        currentMatches = allTasks.filter(task => {
+                            const searchableText = `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
+                            return searchableText.includes(searchTerm.toLowerCase());
+                        }).slice(0, 10);
+                    }
+                    
+                    // NOW show dropdown with tasks
+                    renderDropdown(currentMatches, searchTerm);
+                    dropdown.style.display = 'block';
                 }
-
             }, 100);
-
-            setTimeout(() => clearInterval(interval), 5000);
-
+            
+            // Timeout after 5 seconds
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                if (!allTasks || allTasks.length === 0) {
+                    hideFieldLoading();
+                    dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">Failed to load tasks</div>';
+                    dropdown.style.display = 'block';
+                }
+            }, 5000);
         } else {
-
-            filterTasks(term);
-
+            // Tasks already loaded
+            if (searchTerm.length === 0) {
+                currentMatches = allTasks.slice(0, 15);
+            } else {
+                currentMatches = allTasks.filter(task => {
+                    const searchableText = `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
+                    return searchableText.includes(searchTerm.toLowerCase());
+                }).slice(0, 10);
+            }
+            
+            renderDropdown(currentMatches, searchTerm);
+            dropdown.style.display = 'block';
         }
     }
-
-    function filterTasks(term) {
-
-        const searchTerm = term.toLowerCase();
-
-        if (!term) {
+    
+    // ===== FOCUS EVENT =====
+    searchInput.addEventListener('focus', function() {
+        console.log('🔍 Search field focused - showing tasks');
+        selectedIndex = -1;
+        
+        // If tasks are already loaded, show immediately
+        if (allTasks && allTasks.length > 0) {
             currentMatches = allTasks.slice(0, 15);
+            renderDropdown(currentMatches, '');
+            dropdown.style.display = 'block';
         } else {
-
-            currentMatches = allTasks.filter(task => {
-
-                const text =
-                    `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
-
-                return text.includes(searchTerm);
-
-            }).slice(0, 10);
+            // Otherwise show loading in field
+            loadAndShowTasks('');
         }
-
-        renderDropdown(currentMatches, term);
-    }
+    });
+    
+    // ===== INPUT EVENT =====
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.trim();
+        console.log('🔍 Searching for:', searchTerm);
+        selectedIndex = -1;
+        
+        if (allTasks && allTasks.length > 0) {
+            if (searchTerm.length === 0) {
+                currentMatches = allTasks.slice(0, 15);
+            } else {
+                currentMatches = allTasks.filter(task => {
+                    const searchableText = `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
+                    return searchableText.includes(searchTerm.toLowerCase());
+                }).slice(0, 10);
+            }
+            renderDropdown(currentMatches, searchTerm);
+            dropdown.style.display = 'block';
+        }
 
     // ===== TASK SELECTION =====
     function selectTask(task) {
