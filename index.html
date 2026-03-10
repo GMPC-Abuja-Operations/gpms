@@ -2343,7 +2343,8 @@ function populateTaskDropdown(tasks) {
 }
 // ========== ADVANCED TASK SEARCH WITH KEYBOARD NAVIGATION ==========
 function initTaskSearchAutocomplete() {
-    // Auth check
+
+    // ===== AUTH CHECK =====
     if (!currentUser) {
         const searchInput = document.getElementById('taskSearchInput');
         if (searchInput) {
@@ -2352,42 +2353,108 @@ function initTaskSearchAutocomplete() {
         }
         return;
     }
-    
+
     const searchInput = document.getElementById('taskSearchInput');
     const dropdown = document.getElementById('taskDropdown');
     const hiddenInput = document.getElementById('selectedTaskId');
-    
+    const originalSelect = document.getElementById('taskId');
+
     if (!searchInput || !dropdown) return;
-    
+
+    const defaultPlaceholder = searchInput.placeholder;
+
     let selectedIndex = -1;
     let currentMatches = [];
     let isLoading = false;
-    
-    // ===== LOADING INDICATOR IN THE FIELD =====
+    let searchDebounce = null;
+
+    // ===== LOADING UX =====
     function showFieldLoading() {
         isLoading = true;
-        // Add loading class to the input field
         searchInput.classList.add('loading-field');
         searchInput.placeholder = '🔍 Loading tasks...';
-        // Hide dropdown while loading
         dropdown.style.display = 'none';
     }
-    
+
     function hideFieldLoading() {
         isLoading = false;
         searchInput.classList.remove('loading-field');
-        searchInput.placeholder = 'Type client name, task ID, or status...';
+        searchInput.placeholder = defaultPlaceholder;
     }
-    
-    // ===== HIGHLIGHT FUNCTION =====
-    function highlightMatch(text, searchTerm) {
-        if (!searchTerm || !text) return text;
-        const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        return text.toString().replace(regex, '<span style="background-color: #D4AF37; color: #4A2C2A; font-weight: bold;">$1</span>');
+
+    // ===== WAIT FOR TASK DATA =====
+    function waitForTasks(callback) {
+
+        if (allTasks && allTasks.length > 0) {
+            callback();
+            return;
+        }
+
+        showFieldLoading();
+
+        const interval = setInterval(() => {
+
+            if (allTasks && allTasks.length > 0) {
+                clearInterval(interval);
+                hideFieldLoading();
+                callback();
+            }
+
+        }, 100);
+
+        setTimeout(() => {
+
+            clearInterval(interval);
+
+            if (!allTasks || allTasks.length === 0) {
+
+                hideFieldLoading();
+
+                dropdown.innerHTML =
+                    '<div style="padding:20px;text-align:center;color:#999;">Failed to load tasks</div>';
+
+                dropdown.style.display = 'block';
+            }
+
+        }, 5000);
     }
-    
-    // ===== STATUS COLOR FUNCTION =====
+
+    // ===== FILTER TASKS =====
+    function filterTasks(term) {
+
+        if (!allTasks) return [];
+
+        const searchTerm = term.toLowerCase();
+
+        if (!term) return allTasks.slice(0, 15);
+
+        return allTasks.filter(task => {
+
+            const searchable =
+                `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
+
+            return searchable.includes(searchTerm);
+
+        }).slice(0, 10);
+    }
+
+    // ===== HIGHLIGHT MATCH =====
+    function highlightMatch(text, term) {
+
+        if (!term || !text) return text;
+
+        const regex =
+            new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+
+        return text.replace(
+            regex,
+            '<span style="background:#D4AF37;color:#4A2C2A;font-weight:bold;">$1</span>'
+        );
+    }
+
+    // ===== STATUS COLORS =====
     function getStatusColor(status) {
+
         const colors = {
             'Follow-up': '#FF9800',
             'Review': '#2196F3',
@@ -2396,259 +2463,189 @@ function initTaskSearchAutocomplete() {
             'Lost': '#f44336',
             'No Response': '#9E9E9E'
         };
+
         return colors[status] || '#757575';
     }
-    
-    // ===== DAYS AGO FUNCTION =====
+
+    // ===== DAYS AGO =====
     function getDaysAgo(dateString) {
+
         if (!dateString) return '';
+
         try {
+
             const date = new Date(dateString);
             const today = new Date();
-            const days = Math.floor((today - date) / (1000 * 60 * 60 * 24));
-            
-            if (days === 0) return '<span style="color: #4CAF50;">📅 Today</span>';
-            if (days === 1) return '<span style="color: #FF9800;">📅 Yesterday</span>';
-            if (days < 7) return `<span style="color: #FF9800;">📅 ${days} days ago</span>`;
-            if (days < 30) return `<span style="color: #f44336;">📅 ${days} days ago</span>`;
-            return `<span style="color: #f44336; font-weight: bold;">📅 ${days} days ago ⚠️</span>`;
-        } catch (e) {
+            const days = Math.floor((today - date) / 86400000);
+
+            if (days === 0)
+                return '<span style="color:#4CAF50;">📅 Today</span>';
+
+            if (days === 1)
+                return '<span style="color:#FF9800;">📅 Yesterday</span>';
+
+            if (days < 7)
+                return `<span style="color:#FF9800;">📅 ${days} days ago</span>`;
+
+            if (days < 30)
+                return `<span style="color:#f44336;">📅 ${days} days ago</span>`;
+
+            return `<span style="color:#f44336;font-weight:bold;">📅 ${days} days ago ⚠️</span>`;
+
+        } catch {
+
             return '';
+
         }
     }
-    
-    // ===== RENDER FUNCTION =====
-    function renderDropdown(matches, searchTerm) {
-        if (matches.length === 0) {
+
+    // ===== RENDER DROPDOWN =====
+    function renderDropdown(matches, term) {
+
+        if (!matches.length) {
+
             dropdown.innerHTML = `
-                <div style="padding: 20px; text-align: center; color: #999;">
-                    <div style="font-size: 2rem; margin-bottom: 10px;">🔍</div>
-                    <div>No tasks found matching "<strong>${searchTerm}</strong>"</div>
-                    <div style="font-size: 0.9rem; margin-top: 10px; color: #ccc;">
-                        Try a different search term
-                    </div>
+                <div style="padding:20px;text-align:center;color:#999;">
+                    <div style="font-size:2rem;margin-bottom:10px;">🔍</div>
+                    <div>No tasks found matching "<strong>${term}</strong>"</div>
                 </div>
             `;
+
+            dropdown.style.display = 'block';
+
             return;
         }
-        
+
         let html = '';
 
-        // Add header if showing all tasks
-        if (searchTerm.length === 0) {
+        if (!term) {
+
             html += `
-                <div style="padding: 8px 12px; background: #F5F0E1; font-weight: 600; 
-                           border-bottom: 1px solid #D4AF37; color: #4A2C2A;
-                           display: flex; justify-content: space-between;">
+                <div style="padding:8px 12px;background:#F5F0E1;font-weight:600;
+                    border-bottom:1px solid #D4AF37;color:#4A2C2A;
+                    display:flex;justify-content:space-between;">
                     <span>📋 All Active Proposals (${matches.length})</span>
-                    <span style="font-size: 0.8rem; color: #666;">Click to select</span>
+                    <span style="font-size:0.8rem;color:#666;">Click to select</span>
                 </div>
             `;
         }
-        
+
         html += matches.map((task, index) => {
-            const isSelected = index === selectedIndex;
-            
-            // Build display text with highlights
-            const clientName = highlightMatch(task.clientName, searchTerm);
-            const taskId = highlightMatch(task.id, searchTerm);
-            const status = highlightMatch(task.status, searchTerm);
-            
-            // Get days ago for follow-up tasks
-            const daysAgo = task.status === 'Follow-up' ? getDaysAgo(task.lastSent) : '';
-            
-            // Get due date for other tasks
-            const dueInfo = task.status !== 'Follow-up' && task.dueDate ? 
-                `<span style="color: #666;">📅 Due: ${task.dueDate}</span>` : '';
-            
+
+            const selected = index === selectedIndex;
+
+            const clientName = highlightMatch(task.clientName, term);
+            const taskId = highlightMatch(task.id, term);
+            const status = highlightMatch(task.status, term);
+
+            const daysAgo =
+                task.status === 'Follow-up'
+                    ? getDaysAgo(task.lastSent)
+                    : '';
+
+            const dueInfo =
+                task.status !== 'Follow-up' && task.dueDate
+                    ? `<span style="color:#666;">📅 Due: ${task.dueDate}</span>`
+                    : '';
+
             return `
-                <div class="task-option" 
-                     data-task-id="${task.id}"
-                     data-index="${index}"
-                     style="padding: 15px; cursor: pointer; 
-                            border-bottom: 1px solid #eee;
-                            background: ${isSelected ? '#F5F0E1' : 'white'};
-                            transition: all 0.2s ease;
-                            ${isSelected ? 'border-left: 4px solid #D4AF37;' : ''}">
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="font-weight: 700; font-size: 1.1rem; color: #4A2C2A;">
+                <div class="task-option"
+                    data-task-id="${task.id}"
+                    data-index="${index}"
+                    style="padding:15px;cursor:pointer;border-bottom:1px solid #eee;
+                        background:${selected ? '#F5F0E1' : 'white'};
+                        ${selected ? 'border-left:4px solid #D4AF37;' : ''}">
+
+                    <div style="display:flex;justify-content:space-between;">
+                        <div style="font-weight:700;color:#4A2C2A;">
                             ${clientName}
                         </div>
-                        <div style="font-size: 0.8rem; color: #999; font-family: monospace;">
+
+                        <div style="font-family:monospace;color:#999;font-size:0.8rem;">
                             ${taskId}
                         </div>
                     </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <span style="background: ${getStatusColor(task.status)}; 
-                                       color: white; padding: 3px 10px; 
-                                       border-radius: 20px; font-size: 0.85rem;">
+
+                    <div style="display:flex;justify-content:space-between;margin-top:5px;">
+                        <div style="display:flex;gap:10px;">
+                            <span style="
+                                background:${getStatusColor(task.status)};
+                                color:white;
+                                padding:3px 10px;
+                                border-radius:20px;
+                                font-size:0.85rem;">
                                 ${status}
                             </span>
-                            ${daysAgo ? `<span style="font-size: 0.85rem;">${daysAgo}</span>` : ''}
+
+                            ${daysAgo}
                         </div>
+
                         ${dueInfo}
                     </div>
                 </div>
             `;
-        }).join('');
-        
-        dropdown.innerHTML = html;
-        
-        // Scroll selected item into view
-        if (selectedIndex >= 0) {
-            const selectedElement = dropdown.querySelector(`[data-index="${selectedIndex}"]`);
-            if (selectedElement) {
-                selectedElement.scrollIntoView({ block: 'nearest' });
-            }
-        }
-    }
-    
-    // ===== LOAD AND SHOW TASKS =====
-    function loadAndShowTasks(searchTerm = '') {
-        if (!allTasks || allTasks.length === 0) {
-            // Show loading in the FIELD, not dropdown
-            showFieldLoading();
-            
-            // Wait for tasks to load
-            const checkInterval = setInterval(() => {
-                if (allTasks && allTasks.length > 0) {
-                    clearInterval(checkInterval);
-                    
-                    // Remove loading from field
-                    hideFieldLoading();
-                    
-                    // Prepare matches
-                    if (searchTerm.length === 0) {
-                        currentMatches = allTasks.slice(0, 15);
-                    } else {
-                        currentMatches = allTasks.filter(task => {
-                            const searchableText = `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
-                            return searchableText.includes(searchTerm.toLowerCase());
-                        }).slice(0, 10);
-                    }
-                    
-                    // NOW show dropdown with tasks
-                    renderDropdown(currentMatches, searchTerm);
-                    dropdown.style.display = 'block';
-                }
-            }, 100);
-            
-            // Timeout after 5 seconds
-            setTimeout(() => {
-                clearInterval(checkInterval);
-                if (!allTasks || allTasks.length === 0) {
-                    hideFieldLoading();
-                    dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">Failed to load tasks</div>';
-                    dropdown.style.display = 'block';
-                }
-            }, 5000);
-        } else {
-            // Tasks already loaded
-            if (searchTerm.length === 0) {
-                currentMatches = allTasks.slice(0, 15);
-            } else {
-                currentMatches = allTasks.filter(task => {
-                    const searchableText = `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
-                    return searchableText.includes(searchTerm.toLowerCase());
-                }).slice(0, 10);
-            }
-            
-            renderDropdown(currentMatches, searchTerm);
-            dropdown.style.display = 'block';
-        }
-    }
-    
-    // ===== FOCUS EVENT =====
-    searchInput.addEventListener('focus', function() {
-        console.log('🔍 Search field focused - showing tasks');
-        selectedIndex = -1;
-        
-        // If tasks are already loaded, show immediately
-        if (allTasks && allTasks.length > 0) {
-            currentMatches = allTasks.slice(0, 15);
-            renderDropdown(currentMatches, '');
-            dropdown.style.display = 'block';
-        } else {
-            // Otherwise show loading in field
-            loadAndShowTasks('');
-        }
-    });
-    
-    // ===== INPUT EVENT =====
-    searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.trim();
-        console.log('🔍 Searching for:', searchTerm);
-        selectedIndex = -1;
-        
-        if (allTasks && allTasks.length > 0) {
-            if (searchTerm.length === 0) {
-                currentMatches = allTasks.slice(0, 15);
-            } else {
-                currentMatches = allTasks.filter(task => {
-                    const searchableText = `${task.clientName} ${task.status} ${task.id}`.toLowerCase();
-                    return searchableText.includes(searchTerm.toLowerCase());
-                }).slice(0, 10);
-            }
-            renderDropdown(currentMatches, searchTerm);
-            dropdown.style.display = 'block';
-        }
-        });
 
-    // ===== TASK SELECTION =====
+        }).join('');
+
+        dropdown.innerHTML = html;
+        dropdown.style.display = 'block';
+    }
+
+    // ===== SELECT TASK =====
     function selectTask(task) {
 
         hiddenInput.value = task.id;
 
-        if (originalSelect) {
-            originalSelect.value = task.id;
-        }
+        if (originalSelect) originalSelect.value = task.id;
 
         searchInput.value = `${task.clientName} - ${task.status}`;
 
         dropdown.style.display = 'none';
-
-        searchInput.style.borderColor = '#4CAF50';
-        searchInput.style.background = '#f0fff0';
-
-        setTimeout(() => {
-            searchInput.style.borderColor = '#4A2C2A';
-            searchInput.style.background = '';
-        }, 600);
 
         if (typeof loadTaskVersionInfo === 'function') {
             loadTaskVersionInfo(task.id);
         }
 
         const versionInfo = document.getElementById('version-info');
-        if (versionInfo) versionInfo.style.display = 'block';
 
-        console.log('✅ Task selected:', task.id);
+        if (versionInfo) versionInfo.style.display = 'block';
     }
 
-    // ===== INPUT SEARCH =====
+    // ===== UPDATE RESULTS =====
+    function updateResults(term) {
+
+        currentMatches = filterTasks(term);
+
+        renderDropdown(currentMatches, term);
+    }
+
+    // ===== INPUT SEARCH (DEBOUNCED) =====
     searchInput.addEventListener('input', function () {
 
-        selectedIndex = -1;
+        if (isLoading) return;
 
         const term = this.value.trim();
 
-        loadTasks(term);
+        selectedIndex = -1;
 
-        clearBtn.style.display = term ? 'block' : 'none';
+        clearTimeout(searchDebounce);
+
+        searchDebounce = setTimeout(() => {
+
+            updateResults(term);
+
+        }, 120);
     });
 
-    // ===== SHOW TASKS ON FOCUS =====
+    // ===== FOCUS =====
     searchInput.addEventListener('focus', function () {
 
         selectedIndex = -1;
 
-        loadTasks('');
+        waitForTasks(() => updateResults(''));
     });
 
-    // ===== KEYBOARD NAVIGATION =====
+    // ===== KEYBOARD NAV =====
     searchInput.addEventListener('keydown', function (e) {
 
         if (dropdown.style.display !== 'block' || !currentMatches.length) return;
@@ -2687,23 +2684,6 @@ function initTaskSearchAutocomplete() {
         const task = allTasks.find(t => t.id === id);
 
         if (task) selectTask(task);
-
-    });
-
-    // ===== HOVER SELECT =====
-    dropdown.addEventListener('mouseover', function (e) {
-
-        const option = e.target.closest('.task-option');
-        if (!option) return;
-
-        const index = parseInt(option.dataset.index);
-
-        if (!isNaN(index) && index !== selectedIndex) {
-
-            selectedIndex = index;
-
-            renderDropdown(currentMatches, searchInput.value);
-        }
     });
 
     // ===== CLICK OUTSIDE =====
@@ -2712,49 +2692,12 @@ function initTaskSearchAutocomplete() {
         if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
 
             dropdown.style.display = 'none';
-
             selectedIndex = -1;
         }
     });
 
-    // ===== CLEAR BUTTON =====
-    const clearBtn = document.createElement('span');
-
-    clearBtn.innerHTML = '✕';
-
-    clearBtn.style.cssText = `
-        position:absolute;
-        right:40px;
-        top:50%;
-        transform:translateY(-50%);
-        color:#999;
-        cursor:pointer;
-        font-size:1.2rem;
-        display:none;
-    `;
-
-    searchInput.parentNode.appendChild(clearBtn);
-
-    clearBtn.addEventListener('click', function () {
-
-        searchInput.value = '';
-        hiddenInput.value = '';
-
-        if (originalSelect) originalSelect.value = '';
-
-        dropdown.style.display = 'none';
-
-        clearBtn.style.display = 'none';
-
-        const versionInfo = document.getElementById('version-info');
-        if (versionInfo) versionInfo.style.display = 'none';
-
-        searchInput.focus();
-    });
-
-    console.log('✅ Hybrid autocomplete initialized');
+    console.log('✅ Autocomplete initialized');
 }
-
     
     // ========== FORM DRAFT PERSISTENCE ==========
     function loadFormDraft() {
