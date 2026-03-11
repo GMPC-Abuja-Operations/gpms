@@ -810,9 +810,9 @@ const firebaseCheck = setInterval(() => {
                     <!-- Task Selection -->
                     <div style="display: none;">
                         <label for="taskId">Select Task:*</label>
-                        <select id="taskId" name="taskId" required>
+                        <select id="taskId" name="taskId">
                             <option value="" disabled selected>Loading tasks…</option>
-                        </select>
+                        </select> 
                         <span class="error-message" id="taskId-error">Please select a task</span>
                     </div>
 
@@ -2055,6 +2055,14 @@ function showLoginForm() {
             showLoginForm();
             return;
         }
+
+        if (formId === 'update-form') {
+        const taskId = document.getElementById('selectedTaskId').value;
+        if (!taskId) {
+            showTempMessage('error-banner', 'Please select a task from the search', 3000);
+            return;
+        }
+    }
         
         // Validate form
         if (!validateForm(formId)) {
@@ -2596,7 +2604,10 @@ function initTaskSearchAutocomplete() {
 
         hiddenInput.value = task.id;
 
-        if (originalSelect) originalSelect.value = task.id;
+        if (originalSelect) {
+        originalSelect.value = task.id;  // ← This matches your variable name
+        console.log('✅ Updated original select with task:', task.id);
+    }
 
         searchInput.value = `${task.clientName} - ${task.status}`;
 
