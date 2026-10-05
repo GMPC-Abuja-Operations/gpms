@@ -574,6 +574,27 @@ const firebaseCheck = setInterval(() => {
     100% { background-position: 100px 0; }
 }
     </style>
+
+<style id="gpms-ui-upgrade">
+/* GPMS UI refresh — presentation-only layer; existing IDs, handlers and integrations preserved. */
+:root{--primary:#c99b2e;--primary-dark:#92701d;--ink:#251b1b;--muted:#766a68;--surface:#fffdf9;--cream:#f7f2e8;--line:#e8dfd2;--shadow:0 24px 70px rgba(67,43,26,.12);--radius:18px}
+*{box-sizing:border-box} html{scroll-behavior:smooth} body{padding:clamp(12px,3vw,34px);background:radial-gradient(circle at 8% 0%,#fff9ed 0,#f7f2e8 38%,#efe8dd 100%);color:var(--ink);line-height:1.5}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.25;background-image:linear-gradient(rgba(120,90,50,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(120,90,50,.025) 1px,transparent 1px);background-size:28px 28px}
+.container{position:relative;max-width:1180px;border:1px solid rgba(201,155,46,.3);border-radius:28px;background:rgba(255,253,249,.92);box-shadow:var(--shadow);overflow:visible}
+header{min-height:228px;padding:48px clamp(22px,7vw,90px) 42px;text-align:left;border-radius:27px 27px 0 0;background:linear-gradient(120deg,#4b3025 0%,#6c472b 52%,#b18732 100%);overflow:hidden}
+header:after{content:"";position:absolute;inset:auto -7% -65% 45%;height:290px;border:1px solid rgba(255,255,255,.16);border-radius:50%;transform:rotate(-12deg);box-shadow:0 0 0 22px rgba(255,255,255,.04),0 0 0 44px rgba(255,255,255,.025)}
+.logo{top:28px;left:clamp(22px,4vw,55px);height:66px;max-width:150px;filter:drop-shadow(0 7px 12px rgba(0,0,0,.2))}
+header h1{margin-top:52px;font-size:clamp(2.2rem,6vw,4.2rem);letter-spacing:.08em;line-height:1;color:#fff8e8} header p{font-size:clamp(.95rem,2vw,1.18rem)!important;color:#f9ebc6}
+.auth-container{top:28px;right:clamp(20px,4vw,55px);z-index:5}.auth-button{border-radius:999px;padding:11px 20px;width:auto;box-shadow:0 7px 18px rgba(0,0,0,.15)}
+#notification-bell{top:88px;right:clamp(22px,4vw,55px);padding:10px 13px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;backdrop-filter:blur(10px)}
+.tabs{gap:8px;padding:12px 18px;border-bottom:1px solid var(--line);background:#fffaf2}.tab-btn{position:relative;flex:none;padding:15px 22px;border-radius:12px;color:var(--muted);font-size:1rem;font-weight:700}.tab-btn:hover{background:#f5ead3;color:var(--ink)}.tab-btn.active{background:var(--ink);color:#fff;border:0}.tab-btn.active:after{display:none}.keyboard-hint{opacity:.55;font-size:.72rem}
+.tab-content{padding:0}.tab-panel{padding:clamp(22px,4vw,50px);max-width:880px;margin:auto}form{gap:22px}form>div:not(.conditional){padding:18px 20px;border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.7);transition:.2s box-shadow,.2s transform}form>div:not(.conditional):focus-within{box-shadow:0 10px 26px rgba(86,59,30,.08);transform:translateY(-1px)}label{font-size:.88rem;letter-spacing:.02em;color:#5a4742}input,select,textarea{border:1px solid #d8cbbb;border-radius:11px;padding:13px 14px;background:#fffdfb}input:hover,select:hover,textarea:hover{border-color:#b99b69}input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(201,155,46,.15)}textarea{resize:vertical;min-height:105px}form>button[type=submit],#partner-section button[type=button]{border-radius:12px;background:linear-gradient(135deg,#d9ae45,#b98520);color:#291d16;box-shadow:0 8px 18px rgba(170,119,24,.22);padding:15px 20px}button{border-radius:10px}button:focus-visible,.tab-btn:focus-visible{outline:3px solid rgba(37,99,235,.35);outline-offset:3px}
+h3{border:0;margin:4px 0 12px;padding:0;font-size:1.15rem}.draft-notice{border-radius:12px!important;background:#fff8e8;border:1px dashed #d7a73b!important}.banner{border-radius:14px;margin:18px clamp(22px,4vw,50px);padding:15px 18px}.loading{color:var(--primary-dark)}
+#taskDropdown{border-color:#d3a538!important;border-radius:12px!important;margin-top:8px!important}.task-option{padding:16px!important}.task-option:hover{background:#fff7e5!important}.auth-form,#notification-panel{border-radius:16px;box-shadow:0 18px 45px rgba(35,24,18,.2)}
+#partner-section{border-radius:15px!important;background:#fff8e8!important;border:1px dashed #d2a63e!important}#revision-section{border-radius:15px!important}#version-info{border-radius:15px!important}
+@media(max-width:700px){body{padding:8px}.container{border-radius:18px}header{min-height:300px;padding:34px 22px 30px;text-align:center}.logo{position:relative;top:auto;left:auto;height:60px;margin:0 auto 20px}header h1{margin-top:0}.auth-container{top:18px;right:18px}.auth-container #show-login-btn{font-size:.85rem;padding:8px 13px}#notification-bell{top:72px;right:18px}.tabs{padding:10px;flex-direction:row}.tab-btn{padding:12px 9px;font-size:.8rem;line-height:1.25}.tab-btn .keyboard-hint{display:none}.tab-panel{padding:20px 14px}form>div:not(.conditional){padding:15px}.auth-form{min-width:min(280px,calc(100vw - 36px))}#notification-panel{right:10px;width:min(350px,calc(100vw - 20px))}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;scroll-behavior:auto!important;transition:none!important}}
+</style>
 </head>
 <body>
     <div class="container">
@@ -3659,5 +3680,49 @@ document.getElementById('view-history-btn')?.addEventListener('click', async fun
 }
 </script>
     
+
+<script id="gpms-ui-enhancements">
+// Small UX enhancements that do not replace existing business logic.
+document.addEventListener('DOMContentLoaded',()=>{
+  const search=document.getElementById('taskSearchInput');
+  if(search){search.setAttribute('aria-label','Search active proposals');}
+  document.querySelectorAll('input,select,textarea').forEach(el=>{
+    if(el.required && !el.getAttribute('aria-label')){const l=document.querySelector(`label[for="${el.id}"]`);if(l)el.setAttribute('aria-label',l.textContent.replace('*','').trim());}
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.setAttribute('role','tab'));
+});
+</script>
+
+<style id="gpms-flow-ux">
+/* Interaction redesign: progressive disclosure without changing existing form contracts. */
+.flow-guide{display:flex;gap:10px;align-items:center;margin:0 0 28px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fffaf0;color:var(--muted);font-size:.86rem}.flow-guide strong{color:var(--ink)}.flow-step{display:flex;align-items:center;gap:8px}.flow-number{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#eadfc9;color:#6b5020;font-weight:800}.flow-step.active .flow-number{background:var(--ink);color:white}.flow-divider{height:1px;flex:1;background:var(--line);min-width:15px}.new-form-section{position:relative}.new-form-section:before{content:attr(data-step);position:absolute;left:-13px;top:18px;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:var(--primary);color:#fff;font-size:.75rem;font-weight:800}.update-form-locked{opacity:.48;pointer-events:auto;filter:saturate(.5)}.update-form-locked #taskSearchInput{opacity:1;filter:none}.update-form-locked #taskSearchInput:focus{box-shadow:0 0 0 4px rgba(201,155,46,.15)}.update-form-ready{opacity:1;filter:none;transition:opacity .3s}.task-ready-note{display:none;margin:0 0 18px;padding:12px 14px;border-radius:12px;background:#edf8ef;border:1px solid #b6dfbd;color:#286b35;font-size:.9rem}.update-form-ready .task-ready-note{display:block}.next-step-hint{margin-top:-12px;color:var(--muted);font-size:.82rem}.update-form-ready .next-step-hint{display:none}
+@media(max-width:700px){.flow-guide{align-items:flex-start;flex-direction:column;gap:7px}.flow-divider{display:none}.new-form-section:before{left:-7px;top:15px}}
+</style>
+<script id="gpms-flow-ux-script">
+(function(){
+  function guide(steps){return '<div class="flow-guide" aria-label="Workflow progress">'+steps.map((x,i)=>(i?' <span class="flow-divider"></span> ':'')+'<span class="flow-step '+(i===0?'active':'')+'"><span class="flow-number">'+(i+1)+'</span><strong>'+x+'</strong></span>').join('')+'</div>';}
+  function initFlow(){
+    const newTab=document.getElementById('new-tab'), newForm=document.getElementById('new-form');
+    if(newTab && newForm && !newTab.querySelector('.flow-guide')){
+      newForm.insertAdjacentHTML('beforebegin',guide(['Opportunity details','Commercial context','Submit for review']));
+      const fields=[...newForm.children].filter(x=>x.tagName==='DIV');
+      fields.slice(0,6).forEach((el,i)=>{el.classList.add('new-form-section');el.dataset.step=i<3?'1':i<5?'2':'3';});
+      const hint=document.createElement('p');hint.className='next-step-hint';hint.textContent='Complete the required fields above. Your draft is saved automatically as you work.';newForm.append(hint);
+    }
+    const update=document.getElementById('update-tab'), form=document.getElementById('update-form');
+    if(update && form && !update.querySelector('.flow-guide')){
+      form.insertAdjacentHTML('afterbegin',guide(['Find a proposal','Update progress','Attach & submit']));
+      const note=document.createElement('div');note.className='task-ready-note';note.textContent='✓ Proposal selected. The update workspace is now unlocked.';form.insertBefore(note,form.children[1]);
+      const search=document.getElementById('taskSearchInput');
+      [...form.children].forEach(el=>{if(el!==search?.closest('div') && !el.classList.contains('flow-guide') && !el.classList.contains('task-ready-note'))el.classList.add('update-locked');});
+      form.classList.add('update-form-locked');
+      const check=()=>{const selected=document.getElementById('selectedTaskId')?.value; if(selected){form.classList.remove('update-form-locked');form.classList.add('update-form-ready');form.querySelectorAll('.update-locked').forEach(el=>el.classList.remove('update-locked'));}};
+      setInterval(check,350); check();
+    }
+  }
+  document.addEventListener('DOMContentLoaded',initFlow);window.addEventListener('load',initFlow);
+})();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a45dac5039bffc17',t:'MTc5MTIxNjM4MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
